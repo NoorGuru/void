@@ -667,13 +667,13 @@ export function createWorld(canvas) {
     .multiplyScalar(50000)
     .addScaledVector(viewUp, 10000)
     .addScaledVector(GALAXY_OFFSET, -30000);
-  // Seen about 77° from face-on, as it is from here: a long tilted oval.
+  // Seen steeply from the side, as it is from here: a long tilted oval.
   const andromedaAxis = viewUp
     .clone()
     .multiplyScalar(Math.cos(0.5))
     .addScaledVector(viewRight, Math.sin(0.5))
-    .multiplyScalar(Math.sin(1.34))
-    .addScaledVector(GALAXY_OFFSET, Math.cos(1.34))
+    .multiplyScalar(Math.sin(1.2))
+    .addScaledVector(GALAXY_OFFSET, Math.cos(1.2))
     .normalize();
   andromeda.quaternion.setFromUnitVectors(Y_AXIS, andromedaAxis);
   scene.add(andromeda);
@@ -1168,10 +1168,35 @@ export function createWorld(canvas) {
     if (len < minR && len > 0) pos.copy(center).addScaledVector(tmp.dir.normalize(), minR);
   }
 
+  // Brightness of the frame behind the words, read back from the drawing
+  // buffer right after rendering (three thin rows across the rect), so the
+  // ink can follow what is actually under it in either text direction.
+  const lumaRow = new Uint8Array(4 * 1200);
+  function sampleLuma(rect) {
+    const gl = renderer.getContext();
+    const dpr = renderer.getPixelRatio();
+    const W = gl.drawingBufferWidth;
+    const H = gl.drawingBufferHeight;
+    const x = THREE.MathUtils.clamp(Math.floor(rect.x * dpr), 0, W - 1);
+    const w = Math.max(1, Math.min(1200, Math.floor(rect.w * dpr), W - x));
+    let sum = 0;
+    let n = 0;
+    for (const fy of [0.2, 0.55, 0.85]) {
+      const y = THREE.MathUtils.clamp(Math.floor(H - (rect.y + rect.h * fy) * dpr), 0, H - 1);
+      gl.readPixels(x, y, w, 1, gl.RGBA, gl.UNSIGNED_BYTE, lumaRow);
+      for (let i = 0; i < w; i += 3) {
+        const k = i * 4;
+        sum += 0.2126 * lumaRow[k] + 0.7152 * lumaRow[k + 1] + 0.0722 * lumaRow[k + 2];
+        n += 1;
+      }
+    }
+    return n ? sum / n / 255 : null;
+  }
+
   const ember = { x: 0, y: 0, a: 0, label: 0 };
   const horizonColor = new THREE.Color('#dbb28f');
 
-  function render(u, playTime, width, height) {
+  function render(u, playTime, width, height, probes = null) {
     const walk = sampleWalk(playTime);
     placeWalker(walk.x, walk.z);
     poseBodies();
@@ -1184,7 +1209,7 @@ export function createWorld(canvas) {
     const pose = poseFigure(figure, playTime, walk);
     camera.aspect = width / height;
     camera.fov = width < height ? 48 : 34;
-    frame(u, es, ss);
+    const focus = frame(u, es, ss);
 
     const skyColor = skyAt(u);
     scene.background.setRGB(skyColor.r / 255, skyColor.g / 255, skyColor.b / 255, THREE.SRGBColorSpace);
@@ -1317,7 +1342,7 @@ export function createWorld(canvas) {
     galaxy.visible = galaxyMat.opacity > 0.01;
     const bulgePx = Math.max(4600, 9 / pxPerUnit(camGal));
     bulge.scale.setScalar(bulgePx);
-    bulge.material.opacity = 0.55 * smoothstep(0.74, 0.84, u) * lastLight;
+    bulge.material.opacity = 0.4 * smoothstep(0.74, 0.84, u) * lastLight;
     bulge.visible = bulge.material.opacity > 0.01;
     andromeda.getWorldPosition(tmp.p);
     const andDist = camera.position.distanceTo(tmp.p);
@@ -1335,6 +1360,7 @@ export function createWorld(canvas) {
     renderer.setPixelRatio(dpr);
     renderer.setSize(width, height, false);
     renderer.render(scene, camera);
+    const luma = probes ? probes.map(sampleLuma) : null;
 
     // The ember: where you are, at every scale. It sits on the person
     // until the globe is small, then on the Earth, which at the largest
@@ -1362,7 +1388,8 @@ export function createWorld(canvas) {
     ember.a = (1 - smoothstep(3, 8, personPx)) * visible * onScreen;
     ember.label = smoothstep(0.64, 0.68, u);
 
-    return { sky: skyColor, veil, stepped: pose.stepped && u < 0.34, ember };
+    const span = 2 * focus * Math.tan(fovRad / 2) * camera.aspect;
+    return { sky: skyColor, veil, stepped: pose.stepped && u < 0.34, ember, luma, span };
   }
 
   return { render, integrate, reset, sky };

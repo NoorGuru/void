@@ -11,14 +11,14 @@ const browser = await chromium.launch({
   executablePath: process.env.CHROME || '/home/noor/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome',
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
-const page = await browser.newPage({ viewport: { width: w, height: h } });
+const page = await browser.newPage({ viewport: { width: w, height: h }, reducedMotion: process.env.REDUCE ? "reduce" : "no-preference" });
 page.on('console', (m) => { if (m.type() === 'error') console.log('console:', m.text()); });
 page.on('pageerror', (e) => console.log('pageerror:', e.message));
 import fs from 'node:fs';
 fs.mkdirSync(out, { recursive: true });
 for (const t of times) {
   await page.goto(`${base}?t=${t}&lang=${lang}`, { waitUntil: 'load' });
-  await page.waitForTimeout(1800);
+  await page.waitForTimeout(Number(process.env.WAIT || 3000));
   await page.screenshot({ path: `${out}/t${String(t).padStart(3, '0')}.png` });
   console.log('shot', t);
 }

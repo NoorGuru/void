@@ -54,25 +54,22 @@ const PHASES = [
   ['coda', 0.985],
 ];
 
-// The true width of what the camera shows, in meters. The scene
-// compresses sizes; this number does not.
-const WIDTH = keyInterpolator(
+// Meters per scene unit in each frame of reference. Sizes are compressed
+// differently at each scale (the person is 1.7 units tall, the Earth 400
+// units in radius, its orbit 1760), so the true width of the view is the
+// camera's span times the scale that owns the frame at that moment.
+const METERS_PER_UNIT = keyInterpolator(
   [
-    { u: 0, v: 4 },
-    { u: 0.08, v: 9 },
-    { u: 0.16, v: 60 },
-    { u: 0.24, v: 2000 },
-    { u: 0.32, v: 1.2e5 },
-    { u: 0.42, v: 1.5e7 },
-    { u: 0.5, v: 1.1e9 },
-    { u: 0.58, v: 4e11 },
-    { u: 0.66, v: 1.2e13 },
-    { u: 0.72, v: 1e14 },
-    { u: 0.78, v: 4.7e17 },
-    { u: 0.86, v: 1.9e20 },
-    { u: 0.92, v: 1.9e21 },
-    { u: 0.96, v: 4.7e22 },
-    { u: 1, v: 8.8e26 },
+    { u: 0, v: 1 },
+    { u: 0.16, v: 1 },
+    { u: 0.3, v: 6.371e6 / 400 },
+    { u: 0.47, v: 6.371e6 / 400 },
+    { u: 0.62, v: 1.496e11 / 1760 },
+    { u: 0.72, v: 1.496e11 / 1760 },
+    { u: 0.84, v: 2.46e20 / 6240 },
+    { u: 0.88, v: 2.46e20 / 6240 },
+    { u: 0.94, v: 2.4e22 / 60000 },
+    { u: 1, v: 8.8e26 / 1.74e6 },
   ],
   { log: true },
 );
@@ -94,6 +91,7 @@ const scrubEl = document.getElementById('scrub');
 const failEl = document.getElementById('fail');
 const aboutEl = document.getElementById('about');
 const scaleEl = document.getElementById('scale');
+const dockEl = document.querySelector('.dock');
 const emberEl = document.getElementById('ember');
 const emberLabel = document.getElementById('ember-label');
 const veilEl = document.getElementById('veil');
@@ -156,10 +154,48 @@ function lineKey(u, time) {
   return 'still';
 }
 
-function applySky(sky, u) {
-  const ink = u < 0.305 ? '#241c16' : '#f4eee4';
+// The ink follows the frame behind the words (sampled by the renderer),
+// with a gap between the two thresholds so it does not flicker at the
+// edge. Until there is a sample, the zoom position decides.
+let darkInk = true;
+let darkChrome = true;
+let sampled = false;
+
+function judge(dark, luma, veil) {
+  const seen = luma * (1 - veil) + 0.05 * veil;
+  if (dark && seen < 0.36) return false;
+  if (!dark && seen > 0.52) return true;
+  return dark;
+}
+
+function judgeInk(lumas, veil, u) {
+  if (!lumas || lumas[0] == null) {
+    if (!sampled) darkInk = darkChrome = u < 0.305;
+    return;
+  }
+  sampled = true;
+  darkInk = judge(darkInk, lumas[0], veil);
+  darkChrome = judge(darkChrome, lumas[1], veil);
+}
+
+function probeRects() {
+  const a = lineEl.getBoundingClientRect();
+  const b = statEl.getBoundingClientRect();
+  const left = Math.min(a.left, b.left);
+  const right = Math.max(a.right, b.right);
+  const d = dockEl.getBoundingClientRect();
+  return [
+    { x: left, y: a.top, w: right - left, h: b.bottom - a.top },
+    { x: d.left, y: d.top, w: d.width, h: d.height },
+  ];
+}
+
+function applySky(sky) {
+  const ink = darkInk ? '#241c16' : '#f4eee4';
   const skyCss = `rgb(${sky.r | 0}, ${sky.g | 0}, ${sky.b | 0})`;
   root.style.setProperty('--ink', ink);
+  root.style.setProperty('--halo', darkInk ? 'rgba(255, 238, 216, 0.5)' : 'rgba(12, 9, 7, 0.6)');
+  root.style.setProperty('--chrome', darkChrome ? '#241c16' : '#f4eee4');
   root.style.setProperty('--sky', skyCss);
   root.style.color = ink;
   document.body.style.background = skyCss;
@@ -205,6 +241,7 @@ function paintLine(key, animate) {
     swap();
     return;
   }
+  copyEl.classList.remove('is-entering');
   copyEl.classList.add('is-leaving');
   window.setTimeout(swap, 380);
 }
@@ -228,8 +265,9 @@ function playText() {
 }
 
 let shownWidth = '';
-function applyScale(u) {
-  const text = formatWidth(WIDTH(u), lang);
+function applyScale(u, span) {
+  if (!span) return;
+  const text = formatWidth(span * METERS_PER_UNIT(u), lang);
   if (text === shownWidth) return;
   shownWidth = text;
   scaleEl.textContent = text;
@@ -323,6 +361,7 @@ function goHome() {
     return;
   }
   flight = { from: playTime, start: performance.now() };
+  copyEl.classList.remove('is-entering');
   copyEl.classList.add('is-away');
   againEl.hidden = true;
   noteEl.hidden = true;
@@ -443,6 +482,8 @@ function easeInOut(k) {
 
 let last = performance.now();
 let lastCoda = false;
+let frameCount = 0;
+let lastSpan = 0;
 
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
@@ -464,9 +505,13 @@ function frame(now) {
     if (dPlay !== 0) world.integrate(frame.prevTime, playTime, timeToU);
     frame.prevTime = playTime;
 
-    const view = world.render(u, playTime, window.innerWidth, window.innerHeight);
+    frameCount += 1;
+    const probes = frameCount % 10 === 1 ? probeRects() : null;
+    const view = world.render(u, playTime, window.innerWidth, window.innerHeight, probes);
     stepped = view.stepped;
-    applySky(view.sky, u);
+    lastSpan = view.span;
+    if (probes) judgeInk(view.luma, view.veil, u);
+    applySky(view.sky);
     veilEl.style.opacity = String(view.veil);
     const e = view.ember;
     emberEl.style.opacity = String(e.a);
@@ -476,7 +521,7 @@ function frame(now) {
   sound.update(u, dt, stepped, rush, Boolean(flight));
 
   if (!flight) applyLine(u, playTime);
-  applyScale(u);
+  applyScale(u, lastSpan);
   scrubEl.value = String((playTime / END) * 1000);
 
   const atEnd = u > 0.985 && !flight;

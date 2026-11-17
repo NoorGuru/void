@@ -6,6 +6,8 @@
 :root {
   --sky: #d6b492;
   --ink: #241c16;
+  --halo: rgba(255, 238, 216, 0.5);
+  --chrome: #241c16;
   --void: #110e0c;
   --ember: #ff7a3c;
   --ease: cubic-bezier(0.23, 1, 0.32, 1);
@@ -30,6 +32,10 @@ body {
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
   overflow: hidden;
+}
+
+html {
+  transition: color 0.7s var(--ease);
 }
 
 body {
@@ -138,7 +144,9 @@ html[dir="rtl"] .ember-label {
   line-height: 1.2;
   font-variant-numeric: tabular-nums lining-nums;
   opacity: 0;
-  transition: opacity 1.2s var(--ease);
+  transition:
+    opacity 1.2s var(--ease),
+    color 0.7s var(--ease);
 }
 
 .scale.is-on {
@@ -163,13 +171,19 @@ main {
   bottom: calc(var(--margin) + env(safe-area-inset-bottom));
   width: min(36rem, calc(100% - var(--margin) * 2 - env(safe-area-inset-left) - env(safe-area-inset-right)));
   text-align: start;
-  text-shadow: 0 0 22px color-mix(in srgb, var(--sky) 70%, transparent);
+  text-shadow: 0 0 20px var(--halo);
   transition: opacity 0.45s var(--ease);
 }
 
 html[dir="rtl"] .copy {
   left: auto;
   right: calc(var(--margin) + env(safe-area-inset-right));
+}
+
+.dock,
+.scale {
+  color: var(--chrome);
+  transition: color 0.7s var(--ease);
 }
 
 .dock {
@@ -443,7 +457,7 @@ button:active {
 
 #scrub::-webkit-slider-runnable-track {
   height: 2px;
-  background: color-mix(in srgb, var(--ink) 40%, transparent);
+  background: color-mix(in srgb, var(--chrome) 40%, transparent);
   border: 0;
 }
 
@@ -452,21 +466,21 @@ button:active {
   appearance: none;
   width: 8px;
   height: 8px;
-  background: var(--ink);
+  background: var(--chrome);
   border: 0;
   border-radius: 0;
 }
 
 #scrub::-moz-range-track {
   height: 2px;
-  background: color-mix(in srgb, var(--ink) 40%, transparent);
+  background: color-mix(in srgb, var(--chrome) 40%, transparent);
   border: 0;
 }
 
 #scrub::-moz-range-thumb {
   width: 8px;
   height: 8px;
-  background: var(--ink);
+  background: var(--chrome);
   border: 0;
   border-radius: 0;
 }
@@ -581,6 +595,11 @@ html[lang="ar"] .lang button[lang="en"] {
   .dock-actions button {
     font-size: 16px;
     padding: 10px 6px;
+  }
+
+  .scale {
+    top: calc(128px + env(safe-area-inset-top));
+    font-size: 15px;
   }
 
   button {

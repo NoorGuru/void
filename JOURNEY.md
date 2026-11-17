@@ -216,11 +216,30 @@ Also check `&lang=ar`, a 390x844 viewport, and reduced motion.
   - The ember is a DOM element (`#ember`) positioned from
     `world.render().ember`; it sits above `#veil`.
 
-### Still to check or polish
+- 2026-11-18: Second pass after a full capture review.
+  - Ink is adaptive: the renderer reads back three thin pixel rows behind
+    the copy and behind the dock every 10 frames (`sampleLuma`), and
+    `main.js` picks dark or light ink for each with hysteresis
+    (`--ink`/`--halo` for the copy, `--chrome` for dock and readout).
+  - The scale readout is the camera's real span times the meters-per-unit
+    of the frame that owns the view (`METERS_PER_UNIT` in `main.js`).
+  - Andromeda is a steep oval (69° from face-on), not additive.
+  - `tools/flight.mjs` captures the Go home flight.
 
-- [ ] Fly-home flight end to end in a real browser (click Go home at the end).
-- [ ] Arabic at 1280 and 390 widths (word reveal with Amiri, readout digits).
-- [ ] Phone layout 390x844: readout vs dock, copy width, ember label.
-- [ ] Reduced motion: steps land on each phase, no animation.
-- [ ] Moon phase: the Moon is sometimes behind the Earth during its line.
-- [ ] Performance on a real GPU (Earth shader fbm, 40k web points, shadows).
+### Verified
+
+- [x] Fly-home flight lands at t = 0 with "You have not moved yet."
+- [x] Arabic at 1280 (copy bottom-right, adaptive ink over the sea).
+- [x] Phone 390x844: readout sits under the scrub bar.
+- [x] Reduced motion: Farther steps phase by phase, plain swaps.
+
+### Open
+
+- [ ] The Moon can be behind the Earth during its own line (its phase
+      angle is set by the solar clock; nudge `moonAngle` offset if needed).
+- [ ] The Moon's compressed distance (1.6 Earth radii) disagrees with the
+      readout during the moon phase; inherent to the compression.
+- [ ] Performance on a real GPU (Earth shader fbm, 40k web points, shadow
+      map updates until u 0.3). Captures here use SwiftShader.
+- [ ] Sound: listen through once; the coda chord and flight sweep levels
+      were set by reading, not by ear.
