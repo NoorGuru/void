@@ -1,5 +1,7 @@
 @import "@fontsource/literata/latin-400.css";
 @import "@fontsource/literata/latin-600.css";
+@import "@fontsource/amiri/arabic-400.css";
+@import "@fontsource/amiri/arabic-700.css";
 
 :root {
   --sky: #c4b8a4;
@@ -75,10 +77,15 @@ main {
 .copy {
   position: absolute;
   left: calc(var(--margin) + env(safe-area-inset-left));
-  right: calc(var(--margin) + env(safe-area-inset-right));
   bottom: calc(var(--margin) + env(safe-area-inset-bottom));
-  max-width: 36rem;
+  width: min(36rem, calc(100% - var(--margin) * 2 - env(safe-area-inset-left) - env(safe-area-inset-right)));
+  text-align: start;
   transition: opacity 0.45s var(--ease);
+}
+
+html[dir="rtl"] .copy {
+  left: auto;
+  right: calc(var(--margin) + env(safe-area-inset-right));
 }
 
 .dock {
@@ -90,6 +97,45 @@ main {
   align-items: flex-end;
   gap: 2px;
   width: min(280px, calc(100vw - var(--margin) * 2 - env(safe-area-inset-left) - env(safe-area-inset-right)));
+}
+
+html[dir="rtl"] .dock {
+  right: auto;
+  left: calc(var(--margin) + env(safe-area-inset-left));
+}
+
+.lang {
+  display: flex;
+  flex-shrink: 0;
+  direction: ltr;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.lang button {
+  flex-shrink: 0;
+  font-size: 16px;
+  line-height: 1;
+  padding: 10px 9px;
+  white-space: nowrap;
+  opacity: 0.62;
+  transition: opacity 0.3s var(--ease);
+}
+
+.lang button[lang="ar"] {
+  font-family: "Amiri", "Literata", Palatino, Georgia, serif;
+  font-size: 22px;
+  letter-spacing: 0;
+  padding-block: 6px 5px;
+}
+
+html[lang="en"] #lang-en,
+html[lang="ar"] #lang-ar {
+  opacity: 1;
+  text-decoration-line: underline;
+  text-decoration-color: var(--ember);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.32em;
 }
 
 .dock-actions {
@@ -148,7 +194,7 @@ h1 {
 }
 
 .credit-arrow {
-  margin-left: 0.22em;
+  margin-inline-start: 0.22em;
   font-size: 0.72em;
   line-height: 1;
   opacity: 0.45;
@@ -164,6 +210,11 @@ h1 {
   color: var(--ember);
   opacity: 1;
   transform: translate(0.08em, -0.26em);
+}
+
+html[dir="rtl"] .credit a:hover .credit-arrow,
+html[dir="rtl"] .credit a:focus-visible .credit-arrow {
+  transform: translate(-0.08em, -0.26em);
 }
 
 .credit a:hover {
@@ -229,6 +280,7 @@ button:active {
 #scrub {
   pointer-events: auto;
   touch-action: none;
+  direction: ltr;
   width: 100%;
   height: 22px;
   margin: 0;
@@ -282,6 +334,54 @@ button:active {
   font-weight: 600;
   letter-spacing: -0.03em;
   line-height: 1.05;
+  text-align: start;
+}
+
+html[dir="rtl"] .fail {
+  left: auto;
+  right: calc(var(--margin) + env(safe-area-inset-right));
+}
+
+html[lang="en"] .t-ar,
+html[lang="ar"] .t-en {
+  display: none;
+}
+
+html[lang="ar"] body {
+  font-family: "Amiri", "Literata", Palatino, "Palatino Linotype", "Iowan Old Style", Georgia, serif;
+}
+
+html[lang="ar"] h1,
+html[lang="ar"] #begin,
+html[lang="ar"] #again,
+html[lang="ar"] .fail {
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+html[lang="ar"] h1 {
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+html[lang="ar"] button {
+  letter-spacing: 0;
+}
+
+html[lang="ar"] #hint,
+html[lang="ar"] #note,
+html[lang="ar"] #stat {
+  line-height: 1.75;
+}
+
+html[lang="ar"] .credit-latin,
+html[lang="ar"] .lang button[lang="en"] {
+  font-family: "Literata", Palatino, "Palatino Linotype", "Iowan Old Style", Georgia, serif;
+}
+
+html[lang="ar"] .lang button[lang="en"] {
+  letter-spacing: -0.02em;
+  font-size: 16px;
 }
 
 .sr {
@@ -297,6 +397,11 @@ button:active {
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .dock-actions button:hover,
+  .lang button:hover {
+    opacity: 1;
+  }
+
   .dock-actions button:hover {
     text-decoration: underline;
     text-underline-offset: 0.22em;
@@ -315,15 +420,24 @@ button:active {
     max-width: 16ch;
   }
 
-  .dock {
+  html[lang="ar"] h1 {
+    max-width: 18ch;
+  }
+
+  html[dir="ltr"] .dock,
+  html[dir="rtl"] .dock {
     left: calc(var(--margin) + env(safe-area-inset-left));
+    right: calc(var(--margin) + env(safe-area-inset-right));
     width: auto;
   }
 
-  .dock button,
-  button {
+  .dock-actions button {
     font-size: 16px;
     padding: 10px 6px;
+  }
+
+  button {
+    font-size: 16px;
   }
 }
 
@@ -331,7 +445,8 @@ button:active {
   .copy,
   #hint,
   .credit a,
-  .credit-arrow {
+  .credit-arrow,
+  .lang button {
     transition: none;
   }
 }
