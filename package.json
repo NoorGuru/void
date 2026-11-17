@@ -1,0 +1,19 @@
+{
+  "name": "void",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "dependencies": {
+    "@fontsource/literata": "^5.2.8",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.11",
+    "wrangler": "^4.164.0"
+  }
+}
