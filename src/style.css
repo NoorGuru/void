@@ -120,27 +120,61 @@ h1 {
 .credit {
   margin: 10px 0 0;
   font-size: 15px;
-  font-style: italic;
-  line-height: 1.45;
-  opacity: 0.68;
+  line-height: 1;
 }
 
 .credit a {
   pointer-events: auto;
+  display: inline-flex;
+  align-items: baseline;
+  padding: 5px 6px 5px 0;
   color: inherit;
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 0.22em;
-  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-decoration: none;
+  transition: color 0.3s var(--ease);
+}
+
+.credit-by {
+  font-style: italic;
+  opacity: 0.55;
+}
+
+.credit-name {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.credit-tld {
+  opacity: 0.42;
+}
+
+.credit-arrow {
+  margin-left: 0.22em;
+  font-size: 0.72em;
+  line-height: 1;
+  opacity: 0.45;
+  transform: translateY(-0.18em);
+  transition:
+    opacity 0.3s var(--ease),
+    transform 0.3s var(--ease),
+    color 0.3s var(--ease);
+}
+
+.credit a:hover .credit-arrow,
+.credit a:focus-visible .credit-arrow {
+  color: var(--ember);
+  opacity: 1;
+  transform: translate(0.08em, -0.26em);
 }
 
 .credit a:hover {
-  color: var(--ember);
-  text-decoration-color: currentColor;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.28em;
+  text-decoration-color: color-mix(in srgb, var(--ember) 75%, transparent);
 }
 
 #stat {
-  margin-top: 8px;
+  margin-top: 12px;
   transition: opacity 0.45s var(--ease);
 }
 
@@ -295,7 +329,9 @@ button:active {
 
 @media (prefers-reduced-motion: reduce) {
   .copy,
-  #hint {
+  #hint,
+  .credit a,
+  .credit-arrow {
     transition: none;
   }
 }
