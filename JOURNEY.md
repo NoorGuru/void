@@ -216,6 +216,13 @@ Also check `&lang=ar`, a 390x844 viewport, and reduced motion.
   - The ember is a DOM element (`#ember`) positioned from
     `world.render().ember`; it sits above `#veil`.
 
+- 2026-11-18: Quiet chrome pass. The language switch and the bynoor.io credit
+  hide while the journey runs and return at the opening and after the way
+  home lands; the play, closer and sound buttons are square icon buttons with
+  crossfading state icons and localized accessible names; the scrub track
+  fills with progress. Verified at 320/390/768/1280, en and ar, and in
+  reduced motion.
+
 - 2026-11-18: Second pass after a full capture review.
   - Ink is adaptive: the renderer reads back three thin pixel rows behind
     the copy and behind the dock every 10 frames (`sampleLuma`), and
