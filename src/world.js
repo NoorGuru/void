@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { createFigure, poseFigure, sampleWalk } from './figure.js';
+import { keyInterpolator } from './motion.js';
+import { keplerRatio, galaxyOmegaRatio } from './orbits.js';
 
 const EARTH_R = 400;
 const MOON_R = 26;
@@ -59,22 +61,15 @@ function smoothstep(edge0, edge1, x) {
   return t * t * (3 - 2 * t);
 }
 
+// Scale keys ride the same continuous curve as the cue timing: no
+// smoothstep stall at each key, so the pull-back accelerates through a
+// phase boundary instead of arriving, pausing, and leaving again.
 function keyLerp(u, keys) {
-  if (u <= keys[0].u) return keys[0].v;
-  for (let i = 0; i < keys.length - 1; i++) {
-    const a = keys[i];
-    const b = keys[i + 1];
-    if (u <= b.u) {
-      const t = smoothstep(a.u, b.u, u);
-      return a.v + (b.v - a.v) * t;
-    }
-  }
-  return keys[keys.length - 1].v;
+  return keyInterpolator(keys)(u);
 }
 
 function logKey(u, keys) {
-  const logKeys = keys.map((k) => ({ u: k.u, v: Math.log(k.v) }));
-  return Math.exp(keyLerp(u, logKeys));
+  return keyInterpolator(keys, { log: true })(u);
 }
 
 const DIST = [
@@ -387,10 +382,10 @@ export function createWorld(canvas) {
         vec3 n = normalize(vNormal);
         vec3 viewDir = normalize(cameraPosition - vWorld);
         float limb = pow(1.0 - clamp(dot(n, viewDir), 0.0, 1.0), 1.35);
-        float grain = sin(vWorld.x * 0.09 + uTime) * sin(vWorld.y * 0.08 - uTime * 0.65);
-        grain *= sin(vWorld.z * 0.07 + uTime * 0.4);
+        float grain = sin(vWorld.x * 0.021 + uTime) * sin(vWorld.y * 0.019 - uTime * 0.65);
+        grain *= sin(vWorld.z * 0.017 + uTime * 0.4);
         vec3 col = mix(vec3(1.0, 0.97, 0.92), vec3(1.0, 0.42, 0.14), limb);
-        col += grain * 0.07;
+        col += grain * 0.035;
         gl_FragColor = vec4(col, uFade);
         #include <logdepthbuf_fragment>
       }
@@ -412,12 +407,19 @@ export function createWorld(canvas) {
   sunGlow.material.fog = false;
   arm.add(sunGlow);
 
+  // The ecliptic sits ~60° to the galactic plane. Every planet shares
+  // this one plane group and then orbits independently inside it — the
+  // inner and outer worlds used to be children of the Earth's own orbit
+  // pivot, so their motion was the Earth's motion plus their own.
+  const solarGroup = new THREE.Group();
+  solarGroup.rotation.x = 1.05;
+  arm.add(solarGroup);
+
   const yearPivot = new THREE.Group();
-  yearPivot.rotation.x = 1.05;
-  arm.add(yearPivot);
+  solarGroup.add(yearPivot);
 
   const earthOrbit = makeOrbit(EARTH_ORBIT, 10, 0xf3eadc);
-  yearPivot.add(earthOrbit);
+  solarGroup.add(earthOrbit);
 
   const sunOrbit = makeOrbit(sunArmR, 50, 0xe6d7c2);
   galaxySpin.add(sunOrbit);
@@ -426,9 +428,14 @@ export function createWorld(canvas) {
   earthPivot.position.set(EARTH_ORBIT, 0, 0);
   yearPivot.add(earthPivot);
 
+  // The Moon's orbit is inclined ~5° to the ecliptic, in a plane of its
+  // own: an inclined group outside the spinning orbit pivot, so the Moon
+  // circles the Earth instead of riding a ring fixed above its pole.
+  const moonPlane = new THREE.Group();
+  moonPlane.rotation.z = 0.09;
+  earthPivot.add(moonPlane);
   const moonPivot = new THREE.Group();
-  moonPivot.rotation.z = 1.15;
-  earthPivot.add(moonPivot);
+  moonPlane.add(moonPivot);
   const moon = new THREE.Mesh(
     new THREE.SphereGeometry(MOON_R, 32, 24),
     new THREE.MeshLambertMaterial({ color: '#c4b6a4' }),
@@ -437,7 +444,7 @@ export function createWorld(canvas) {
   moonPivot.add(moon);
 
   const innerPivot = new THREE.Group();
-  yearPivot.add(innerPivot);
+  solarGroup.add(innerPivot);
   const inner = new THREE.Mesh(
     new THREE.SphereGeometry(INNER_R, 24, 18),
     new THREE.MeshLambertMaterial({ color: '#6a6158' }),
@@ -446,7 +453,7 @@ export function createWorld(canvas) {
   innerPivot.add(inner);
 
   const outerPivot = new THREE.Group();
-  yearPivot.add(outerPivot);
+  solarGroup.add(outerPivot);
   const outer = new THREE.Mesh(
     new THREE.SphereGeometry(OUTER_R, 28, 20),
     new THREE.MeshLambertMaterial({ color: '#c4b49a' }),
@@ -454,11 +461,18 @@ export function createWorld(canvas) {
   outer.position.set(OUTER_ORBIT, 0, 0);
   outerPivot.add(outer);
   const outerOrbit = makeOrbit(OUTER_ORBIT, 14, 0xe7dccb);
-  yearPivot.add(outerOrbit);
+  solarGroup.add(outerOrbit);
 
+  // Axial tilt (23.4°) is a fixed direction in space, and the spin happens
+  // about that tilted axis — two separate groups. Folding both into one
+  // Euler made the axis precess like a top instead of the Earth turning
+  // beneath a steady axis, and because the tilt rode the orbit pivot the
+  // axis used to swing around once a year, abolishing the seasons.
   const tilt = new THREE.Group();
   tilt.rotation.z = 0.41;
   earthPivot.add(tilt);
+  const earthSpin = new THREE.Group();
+  tilt.add(earthSpin);
 
   const { dayTex, lampTex } = paintEarth();
   const earthMat = new THREE.MeshLambertMaterial({ map: dayTex });
@@ -486,7 +500,7 @@ export function createWorld(canvas) {
   earthMat.customProgramCacheKey = () => 'earth-lamps-v1';
 
   const earth = new THREE.Mesh(new THREE.SphereGeometry(EARTH_R, 128, 96), earthMat);
-  tilt.add(earth);
+  earthSpin.add(earth);
 
   const clouds = new THREE.Mesh(
     new THREE.SphereGeometry(EARTH_R * 1.015, 80, 60),
@@ -498,7 +512,7 @@ export function createWorld(canvas) {
       opacity: 0,
     }),
   );
-  tilt.add(clouds);
+  earthSpin.add(clouds);
 
   const atmoMat = new THREE.ShaderMaterial({
     transparent: true,
@@ -543,7 +557,7 @@ export function createWorld(canvas) {
   tilt.add(atmo);
 
   const anchor = new THREE.Group();
-  tilt.add(anchor);
+  earthSpin.add(anchor);
 
   const key = new THREE.DirectionalLight('#ffe4c4', 2.8);
   key.position.set(-7, 8, 3.5);
@@ -582,7 +596,7 @@ export function createWorld(canvas) {
   latLonToDir(HOME.lat, HOME.lon, placeNormal);
   place.position.copy(placeNormal).multiplyScalar(EARTH_R);
   place.quaternion.setFromUnitVectors(Y_AXIS, placeNormal);
-  tilt.add(place);
+  earthSpin.add(place);
   place.add(stones);
 
   const wall = new THREE.MeshLambertMaterial({ color: '#cbb89a' });
@@ -691,6 +705,29 @@ export function createWorld(canvas) {
     sizeAttenuation: true,
     fog: false,
   });
+  // True differential rotation, per star, in the vertex shader: each
+  // point turns at the flat-rotation-curve rate for its own radius, so
+  // the disk shears continuously. Stars at the Sun's radius share the
+  // Sun's rate exactly — the neighbourhood the Sun travels with is the
+  // neighbourhood it keeps.
+  const galaxyShader = { uniforms: null };
+  galaxyMat.onBeforeCompile = (shader) => {
+    galaxyShader.uniforms = shader.uniforms;
+    shader.uniforms.uGalaxy = { value: 0.35 };
+    shader.uniforms.uSunR = { value: sunArmR };
+    shader.vertexShader = 'uniform float uGalaxy;\nuniform float uSunR;\n' + shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `#include <begin_vertex>
+       float gR = length(position.xz);
+       float gRatio = 0.65 + 0.35 * ((uSunR + 1800.0) / (gR + 1800.0));
+       float gAng = uGalaxy * gRatio;
+       float gC = cos(gAng);
+       float gS = sin(gAng);
+       transformed.xz = mat2(gC, -gS, gS, gC) * position.xz;`,
+    );
+  };
+  galaxyMat.customProgramCacheKey = () => 'galaxy-differential-v1';
   const makeDisk = (pos, cols) => {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -796,19 +833,15 @@ export function createWorld(canvas) {
   const neighbors = new THREE.Points(neighborGeo, neighborMat);
   arm.add(neighbors);
 
-  const state = {
-    year: 0,
-    spin: 0.15,
-    galaxy: 0.35,
-    moon: 0.8,
-    inner: 0.4,
-    outer: 1.1,
-    bob: 0.2,
-    shear: 0,
-    sunSpin: 0.4,
-    drift: 0,
-    clouds: 0,
-  };
+  // Two master clocks, not ten independent ones. Everything in the solar
+  // system is a fixed multiple of the year angle (spin 16×, Moon 5⅓×,
+  // planets at their Kepler ratios), and everything galactic is a fixed
+  // multiple of the Sun's galactic angle. A phase transition now changes
+  // how fast time flows, never which motions exist: nothing starts,
+  // stops, or slows down just because the camera arrived.
+  const SPINS_PER_YEAR = 16;
+  const MOONS_PER_YEAR = SPINS_PER_YEAR / 3;
+  const state = { solar: 0, galaxy: 0.35 };
 
   const sky = { r: 196, g: 184, b: 164 };
   const tmp = {
@@ -844,67 +877,37 @@ export function createWorld(canvas) {
     anchor.position.copy(tmp.b).multiplyScalar(EARTH_R);
   }
 
-  function rates(u) {
-    return {
-      spin: 0.05 + smoothstep(0.3, 0.42, u) * 0.8 * (1 - smoothstep(0.64, 0.8, u) * 0.75),
-      year: 0.02 + smoothstep(0.48, 0.64, u) * 0.32,
-      galaxy: 0.014 + smoothstep(0.68, 0.82, u) * 0.18,
-      moon: 0.14 + smoothstep(0.4, 0.52, u) * 0.5,
-      inner: 0.06 + smoothstep(0.5, 0.62, u) * 0.85,
-      outer: 0.025 + smoothstep(0.56, 0.68, u) * 0.18,
-      bob: 0.025 + smoothstep(0.66, 0.78, u) * 0.38,
-      shear: smoothstep(0.74, 0.86, u) * 0.11,
-      sunSpin: 0.06 + smoothstep(0.48, 0.6, u) * 0.28,
-      drift: 0.22 + smoothstep(0.6, 0.78, u) * 0.65,
-    };
+  // Time itself accelerates as the view widens, smoothly and for every
+  // body in a family at once. The solar clock begins to flow as the
+  // turning Earth becomes visible and keeps flowing, unchanged, while
+  // the year, the Moon and the planets take over the story; likewise the
+  // galactic clock. Ratios between bodies never change with zoom.
+  function solarRate(u) {
+    return 0.015 + 0.11 * smoothstep(0.3, 0.52, u) + 0.06 * smoothstep(0.52, 0.68, u);
+  }
+
+  function galaxyRate(u) {
+    return 0.01 + 0.12 * smoothstep(0.66, 0.84, u);
   }
 
   function integrate(dPlay, u0, u1, reduced) {
     if (reduced) {
-      state.spin = 0.4 + u1 * 1.4;
-      state.year = u1 * 3.1;
+      state.solar = u1 * 2.6;
       state.galaxy = 0.35 + u1 * 0.9;
-      state.moon = 0.8 + u1 * 2.4;
-      state.inner = u1 * 4;
-      state.outer = 1.1 + u1 * 1.4;
-      state.bob = 0.2 + u1 * 1.2;
-      state.shear = u1 * 0.4;
-      state.sunSpin = 0.4 + u1 * 0.8;
-      state.drift = u1;
-      state.clouds = u1 * 0.6;
       return;
     }
     const steps = Math.max(1, Math.ceil(Math.abs(dPlay) / 0.04));
     for (let i = 1; i <= steps; i++) {
       const u = u0 + (u1 - u0) * (i / steps);
       const dp = dPlay / steps;
-      const r = rates(u);
-      state.spin += dp * r.spin;
-      state.year += dp * r.year;
-      state.galaxy += dp * r.galaxy;
-      state.moon += dp * r.moon;
-      state.inner += dp * r.inner;
-      state.outer += dp * r.outer;
-      state.bob += dp * r.bob;
-      state.shear += dp * r.shear;
-      state.sunSpin += dp * r.sunSpin;
-      state.drift += dp * r.drift;
-      state.clouds += dp * 0.012;
+      state.solar += dp * solarRate(u);
+      state.galaxy += dp * galaxyRate(u);
     }
   }
 
   function reset() {
-    state.year = 0;
-    state.spin = 0.15;
+    state.solar = 0;
     state.galaxy = 0.35;
-    state.moon = 0.8;
-    state.inner = 0.4;
-    state.outer = 1.1;
-    state.bob = 0.2;
-    state.shear = 0;
-    state.sunSpin = 0.4;
-    state.drift = 0;
-    state.clouds = 0;
   }
 
   function skyAt(u) {
@@ -993,9 +996,12 @@ export function createWorld(canvas) {
     galaxySpin.getWorldPosition(tmp.look);
     tmp.cam.copy(tmp.look).addScaledVector(GALAXY_OFFSET, dist);
 
-    const wB = smoothstep(0.36, 0.46, u);
-    const wC = smoothstep(0.54, 0.64, u);
-    const wD = smoothstep(0.76, 0.86, u);
+    // Wider, earlier handovers: the next centre is already taking weight
+    // while the current one still holds the frame, so the view is carried
+    // across the boundary by both — no arrival, cut, and departure.
+    const wB = smoothstep(0.33, 0.49, u);
+    const wC = smoothstep(0.51, 0.67, u);
+    const wD = smoothstep(0.73, 0.89, u);
 
     tmp.a.lerp(tmp.b, wB);
     tmp.ta.lerp(tmp.tb, wB);
@@ -1004,10 +1010,10 @@ export function createWorld(canvas) {
     tmp.a.lerp(tmp.cam, wD);
     tmp.ta.lerp(tmp.look, wD);
 
-    if (u > 0.28) pushOut(tmp.a, tmp.earth, EARTH_R + 3);
-    if (u > 0.5) pushOut(tmp.a, tmp.sun, SUN_R + 40);
+    if (u > 0.24) pushOut(tmp.a, tmp.earth, EARTH_R + 3);
+    if (u > 0.46) pushOut(tmp.a, tmp.sun, SUN_R + 40);
 
-    tmp.up.copy(tmp.normal).lerp(WORLD_UP, smoothstep(0.4, 0.52, u)).normalize();
+    tmp.up.copy(tmp.normal).lerp(WORLD_UP, smoothstep(0.36, 0.58, u)).normalize();
     camera.up.copy(tmp.up);
     camera.position.copy(tmp.a);
     camera.lookAt(tmp.ta);
@@ -1029,37 +1035,61 @@ export function createWorld(canvas) {
     const walk = sampleWalk(playTime);
     placeWalker(walk.x, walk.z);
 
-    sunPath.rotation.y = state.galaxy;
-    innerSpin.rotation.y = state.galaxy * 1.7;
-    outerSpin.rotation.y = state.galaxy * 0.42;
-    const breathe = 1 + 0.22 * Math.sin(state.galaxy * 2.1);
+    // All angles derive from the two master clocks, with the offsets the
+    // opening composition was built with.
+    const yearAngle = state.solar;
+    const spinAngle = 0.15 + state.solar * SPINS_PER_YEAR;
+    const moonAngle = 0.8 + state.solar * MOONS_PER_YEAR;
+    const innerAngle = 0.4 + state.solar * keplerRatio(INNER_ORBIT, EARTH_ORBIT);
+    const outerAngle = 1.1 + state.solar * keplerRatio(OUTER_ORBIT, EARTH_ORBIT);
+    const sunSpinAngle = 0.4 + state.solar * 4;
+    const galaxyAngle = state.galaxy;
+    // The Sun crosses the galactic plane about three times per orbit,
+    // a few hundred units — the thickness of the disk it moves through,
+    // not the old 2,600-unit plunge across it.
+    const bobAngle = 0.2 + (galaxyAngle - 0.35) * 3;
+
+    sunPath.rotation.y = galaxyAngle;
+    // The solar system's orientation is fixed against the distant stars:
+    // counter the orbit pivot so the ecliptic, the Earth's axis and the
+    // neighbouring stars are carried around the galaxy, not spun with
+    // the line to its centre.
+    arm.quaternion.setFromAxisAngle(Y_AXIS, -galaxyAngle);
+    if (galaxyShader.uniforms) galaxyShader.uniforms.uGalaxy.value = galaxyAngle;
+    innerSpin.rotation.y = 0;
+    outerSpin.rotation.y = 0;
+    const breathe = 1 + 0.018 * Math.sin(galaxyAngle + 0.6);
     arm.position.set(
       Math.cos(sunTheta) * sunArmR * breathe,
-      Math.sin(state.bob) * 2600,
+      Math.sin(bobAngle) * 220,
       Math.sin(sunTheta) * sunArmR * breathe,
     );
-    sun.rotation.y = state.sunSpin;
-    sunMat.uniforms.uTime.value = state.sunSpin * 3.2;
+    sun.rotation.y = sunSpinAngle;
+    sunMat.uniforms.uTime.value = sunSpinAngle * 2.2;
     const driftPos = neighborGeo.attributes.position;
     for (let i = 0; i < neighborCount; i++) {
       const phase = neighborPhase[i];
-      const slide = Math.sin(state.drift * (0.55 + (i % 5) * 0.12) + phase);
+      const slide = Math.sin(galaxyAngle * 0.22 + phase);
       driftPos.setXYZ(
         i,
-        neighborBase[i * 3] + Math.cos(phase) * slide * 340,
-        neighborBase[i * 3 + 1] + Math.sin(state.bob * 1.4 + phase) * 260,
-        neighborBase[i * 3 + 2] + Math.sin(phase) * slide * 340,
+        neighborBase[i * 3] + Math.cos(phase) * slide * 130,
+        neighborBase[i * 3 + 1] + Math.sin(bobAngle * 0.5 + phase) * 80,
+        neighborBase[i * 3 + 2] + Math.sin(phase) * slide * 130,
       );
     }
     driftPos.needsUpdate = true;
-    yearPivot.rotation.y = state.year;
-    tilt.rotation.y = state.spin;
-    clouds.rotation.y = state.spin * 0.22;
-    moonPivot.rotation.y = state.moon;
-    innerPivot.rotation.y = state.inner;
-    inner.rotation.y = state.inner * 2;
-    outerPivot.rotation.y = state.outer;
-    outer.rotation.y = state.outer * 0.6;
+    yearPivot.rotation.y = yearAngle;
+    // Hold the Earth's orientation against its own orbit: the axis keeps
+    // pointing one way all year (which is what makes seasons), while the
+    // ground, the Moon's plane and the tilt group ride the fixed frame.
+    earthPivot.quaternion.setFromAxisAngle(Y_AXIS, -yearAngle);
+    earthSpin.rotation.y = spinAngle;
+    clouds.rotation.y = spinAngle * 0.08;
+    moonPivot.rotation.y = moonAngle;
+    innerPivot.rotation.y = innerAngle;
+    inner.rotation.y = innerAngle * 2;
+    outerPivot.rotation.y = outerAngle;
+    outer.rotation.y = outerAngle * 0.6;
 
     const pose = poseFigure(figure, playTime, walk);
     figure.root.scale.setScalar(1);
@@ -1082,13 +1112,13 @@ export function createWorld(canvas) {
     hemi.color.copy(scene.background);
     hemi.groundColor.set('#5c4d3d');
     hemi.intensity = THREE.MathUtils.lerp(0.95, 0.08, smoothstep(0.28, 0.5, u));
-    key.intensity = 3.1 * (1 - smoothstep(0.16, 0.4, u));
+    key.intensity = 3.1 * (1 - smoothstep(0.18, 0.48, u));
 
     sun.getWorldPosition(tmp.sun);
     earth.getWorldPosition(tmp.earth);
     sunLight.position.copy(tmp.sun);
     sunLight.target.position.copy(tmp.earth);
-    sunLight.intensity = 3.4 * smoothstep(0.2, 0.46, u);
+    sunLight.intensity = 3.4 * smoothstep(0.18, 0.48, u);
 
     const sunDir = tmp.dir.copy(tmp.sun).sub(tmp.earth).normalize();
     atmoMat.uniforms.uSunDir.value.copy(sunDir);
@@ -1119,18 +1149,19 @@ export function createWorld(canvas) {
     disc.material.opacity = 1 - smoothstep(20, 38, alt);
     disc.material.depthWrite = disc.material.opacity > 0.85;
     disc.visible = disc.material.opacity > 0.03;
-    wall.transparent = false;
-    roofMat.transparent = false;
-    doorMat.transparent = false;
-    laneMat.transparent = false;
-    wall.opacity = 1;
-    roofMat.opacity = 1;
-    doorMat.opacity = 1;
-    laneMat.opacity = 1;
-    hamlet.visible = true;
-    stones.visible = true;
+    // The hamlet hands over to the spark instead of shrinking into hard
+    // sub-pixel boxes: it dissolves as the altitude grows, over the same
+    // stretch where the person dissolves into that point of light.
+    const hamletOpacity = 1 - smoothstep(60, 260, alt);
+    for (const m of [wall, roofMat, doorMat, laneMat, stoneMat]) {
+      m.opacity = hamletOpacity;
+      m.transparent = hamletOpacity < 0.99;
+      m.depthWrite = hamletOpacity > 0.5;
+    }
+    hamlet.visible = hamletOpacity > 0.03;
+    stones.visible = hamlet.visible;
 
-    const sparkOn = (1 - smoothstep(2.2, 8, personPx)) * smoothstep(22, 60, earthPx);
+    const sparkOn = (1 - smoothstep(3, 9, personPx)) * smoothstep(22, 60, earthPx);
     spark.material.opacity = sparkOn;
     const sparkPx = Math.min(Math.max(personPx, 2.2), earthPx * 0.1);
     const sparkWorld = (sparkPx * personDist * Math.tan(fovRad / 2)) / (height * 0.5);

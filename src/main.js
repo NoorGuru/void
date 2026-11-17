@@ -1,5 +1,6 @@
 import { createWorld } from './world.js';
 import { createScore } from './sound.js';
+import { monotoneInterpolator } from './motion.js';
 
 const END = 150;
 const CUES = [
@@ -23,6 +24,17 @@ const CUES = [
   [144, 1],
   [150, 1],
 ];
+
+// One continuous zoom, not a chain of eased segments: the monotone cubic
+// keeps a non-zero rate through every interior cue, so the camera carries
+// its momentum from one scale into the next instead of stopping between
+// phases. (It still waits, deliberately, over the opening cue where the
+// person has not moved yet, and settles at the very end.)
+const cueCurve = monotoneInterpolator(CUES);
+
+function timeToU(time) {
+  return cueCurve(Math.min(END, Math.max(0, time)));
+}
 
 const canvas = document.getElementById('view');
 const lineEl = document.getElementById('line');
@@ -64,24 +76,6 @@ try {
   hintEl.hidden = true;
   failEl.textContent = error instanceof Error ? error.message : 'This piece needs WebGL.';
   console.error(error);
-}
-
-function smoothstep(a, b, x) {
-  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
-  return t * t * (3 - 2 * t);
-}
-
-function timeToU(time) {
-  const t = Math.min(END, Math.max(0, time));
-  for (let i = 0; i < CUES.length - 1; i++) {
-    const [t0, u0] = CUES[i];
-    const [t1, u1] = CUES[i + 1];
-    if (t <= t1) {
-      const k = smoothstep(t0, t1, t);
-      return u0 + (u1 - u0) * k;
-    }
-  }
-  return 1;
 }
 
 function currentLine(u, time) {
