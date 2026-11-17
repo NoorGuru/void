@@ -207,7 +207,7 @@ export function createScore() {
     veilTone.osc.frequency.setTargetAtTime(311 * 0.72 ** Math.max(0, u - 0.7), now, 0.3);
     veilTone.gain.gain.setTargetAtTime(0.018 * late, now, 0.3);
 
-    if (stepped && u < 0.22 && rush < 2.2) foot();
+    if (stepped && u < 0.32 && rush < 2.2) foot();
 
     let next = -1;
     for (let i = 0; i < BELLS.length; i++) if (u >= BELLS[i]) next = i;
