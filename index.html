@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#c4b8a4" />
+    <title>Void</title>
+    <meta
+      name="description"
+      content="A continuous zoom from a person standing still to the last light going out."
+    />
+    <link rel="canonical" href="https://void.bynoor.io/" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="view" aria-hidden="true"></canvas>
+    <div id="veil" aria-hidden="true"></div>
+    <main>
+      <p class="sr">
+        A film of scale. It waits until you begin. Scroll or drag to move through it.
+        Space pauses. The sizes are shortened so the motion stays visible.
+      </p>
+      <div class="copy">
+        <h1 id="line">You have not moved yet.</h1>
+        <p id="stat">1.8 meters tall. Everything else is measured from here.</p>
+        <p id="hint" hidden>Wait, or scroll.</p>
+        <p id="note" hidden>Sizes are shortened so the motion stays visible.</p>
+        <button id="begin" type="button">Begin</button>
+        <button id="again" type="button" hidden>Play again</button>
+      </div>
+      <div class="dock">
+        <div class="dock-actions">
+          <button id="near" type="button" hidden>Closer</button>
+          <button id="play" type="button" hidden>Pause</button>
+          <button id="sound" type="button" aria-pressed="true">Sound on</button>
+        </div>
+        <input
+          id="scrub"
+          type="range"
+          min="0"
+          max="1000"
+          value="0"
+          aria-label="Move through the zoom"
+          aria-valuetext="Still."
+        />
+      </div>
+      <p id="fail" class="fail" hidden>This piece needs WebGL.</p>
+    </main>
+    <noscript>
+      <p class="fail">This piece plays with JavaScript and WebGL.</p>
+    </noscript>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
