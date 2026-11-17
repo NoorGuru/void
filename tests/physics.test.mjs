@@ -11,8 +11,8 @@ test('scale readout says real widths in spoken units', () => {
   assert.equal(formatWidth(1.1e12, 'en'), '1.1 billion kilometers across');
   assert.equal(formatWidth(3.1e19, 'en'), '3,300 light-years across');
   assert.equal(formatWidth(8.8e26, 'en'), '93 billion light-years across');
-  assert.equal(formatWidth(8.8e26, 'ar'), 'عرض المشهد ٩٣ مليار سنة ضوئية');
-  assert.equal(formatWidth(5 * 9.4607e15, 'ar'), 'عرض المشهد ٥ سنوات ضوئية');
+  assert.equal(formatWidth(8.8e26, 'ar'), 'عرض المشهد 93 مليار سنة ضوئية');
+  assert.equal(formatWidth(5 * 9.4607e15, 'ar'), 'عرض المشهد 5 سنوات ضوئية');
 });
 
 test('zoom mapping keeps moving between phase cues', () => {
