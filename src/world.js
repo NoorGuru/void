@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createFigure, poseFigure } from './figure.js';
+import { createFigure, poseFigure, sampleWalk } from './figure.js';
 
 const EARTH_R = 400;
 const MOON_R = 26;
@@ -14,6 +14,9 @@ const GALAXY_R = 12000;
 const HOME = { lat: 0.52, lon: 1.74 };
 
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
+const CAM_YAW = new THREE.Quaternion().setFromAxisAngle(Y_AXIS, -0.55);
+const HOME_QUAT = new THREE.Quaternion();
+const WALK_SPIN = new THREE.Quaternion();
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
 const SUN_OFFSET = new THREE.Vector3(1, 0.28, -0.14).normalize();
 const GALAXY_OFFSET = new THREE.Vector3(0.62, 0.42, 0.66).normalize();
@@ -147,7 +150,7 @@ function paintDisc() {
   const g = c.getContext('2d');
   const grd = g.createRadialGradient(256, 256, 40, 256, 256, 256);
   grd.addColorStop(0, 'rgba(212, 198, 176, 1)');
-  grd.addColorStop(0.55, 'rgba(206, 190, 166, 0.85)');
+  grd.addColorStop(0.86, 'rgba(206, 190, 166, 1)');
   grd.addColorStop(1, 'rgba(206, 190, 166, 0)');
   g.fillStyle = grd;
   g.fillRect(0, 0, 512, 512);
@@ -548,7 +551,7 @@ export function createWorld(canvas) {
   anchor.add(key.target);
 
   const disc = new THREE.Mesh(
-    new THREE.CircleGeometry(16, 48),
+    new THREE.CircleGeometry(190, 64),
     new THREE.MeshLambertMaterial({
       map: paintDisc(),
       transparent: true,
@@ -611,7 +614,7 @@ export function createWorld(canvas) {
   place.add(hamlet);
 
   const figure = createFigure();
-  figure.root.position.y = 0.04;
+  figure.root.position.y = 0.2;
   anchor.add(figure.root);
 
   const contact = new THREE.Mesh(
@@ -646,7 +649,7 @@ export function createWorld(canvas) {
       opacity: 0,
     }),
   );
-  spark.position.y = 2.2;
+  spark.position.y = 1.15;
   anchor.add(spark);
 
   const soft = paintSoft('rgba(255,255,255,1)', 'rgba(255,255,255,0)');
@@ -657,8 +660,18 @@ export function createWorld(canvas) {
   const outerPos = [];
   const outerCol = [];
   const color = new THREE.Color();
+  const sunX = Math.cos(sunTheta) * sunArmR;
+  const sunZ = Math.sin(sunTheta) * sunArmR;
   for (let i = 0; i < gCount; i++) {
     const p = galaxyPoint(rand, i % 4);
+    const dx = p.x - sunX;
+    const dz = p.z - sunZ;
+    const sunGap = Math.hypot(dx, dz);
+    if (sunGap < 2400 && sunGap > 0) {
+      const push = 2400 / sunGap;
+      p.x = sunX + dx * push;
+      p.z = sunZ + dz * push;
+    }
     if (p.t < 0.18) color.set('#fffaf2');
     else if (p.t < 0.45) color.set('#ffe3c2');
     else color.set('#f0d2ae');
@@ -669,7 +682,7 @@ export function createWorld(canvas) {
     colors.push(color.r, color.g, color.b);
   }
   const galaxyMat = new THREE.PointsMaterial({
-    size: 36,
+    size: 16,
     map: soft,
     transparent: true,
     depthWrite: false,
@@ -772,7 +785,7 @@ export function createWorld(canvas) {
   const neighborGeo = new THREE.BufferGeometry();
   neighborGeo.setAttribute('position', new THREE.BufferAttribute(neighborBase.slice(), 3));
   const neighborMat = new THREE.PointsMaterial({
-    size: 90,
+    size: 26,
     map: soft,
     transparent: true,
     depthWrite: false,
@@ -820,24 +833,29 @@ export function createWorld(canvas) {
     q: new THREE.Quaternion(),
   };
 
-  function placeAnchor(lat, lon) {
-    latLonToDir(lat, lon, tmp.normal);
-    anchor.position.copy(tmp.normal).multiplyScalar(EARTH_R);
-    anchor.quaternion.setFromUnitVectors(Y_AXIS, tmp.normal);
+  function placeWalker(x, z) {
+    latLonToDir(HOME.lat, HOME.lon, tmp.normal);
+    HOME_QUAT.setFromUnitVectors(Y_AXIS, tmp.normal);
+    tmp.a.set(x, 0, z).applyQuaternion(HOME_QUAT);
+    tmp.b.copy(tmp.normal).multiplyScalar(EARTH_R).add(tmp.a);
+    tmp.b.normalize();
+    WALK_SPIN.setFromUnitVectors(tmp.normal, tmp.b);
+    anchor.quaternion.copy(WALK_SPIN).multiply(HOME_QUAT);
+    anchor.position.copy(tmp.b).multiplyScalar(EARTH_R);
   }
 
   function rates(u) {
     return {
-      spin: 0.04 + smoothstep(0.3, 0.4, u) * 0.95 * (1 - smoothstep(0.6, 0.72, u)),
-      year: 0.004 + smoothstep(0.54, 0.62, u) * 0.38 * (1 - smoothstep(0.74, 0.84, u)),
-      galaxy: 0.01 + smoothstep(0.68, 0.8, u) * 0.22,
-      moon: 0.08 + smoothstep(0.42, 0.5, u) * 0.7 * (1 - smoothstep(0.62, 0.72, u) * 0.5),
-      inner: 0.02 + smoothstep(0.54, 0.62, u) * 1.2,
-      outer: 0.01 + smoothstep(0.6, 0.68, u) * 0.22,
-      bob: 0.02 + smoothstep(0.66, 0.76, u) * 0.42,
-      shear: smoothstep(0.74, 0.84, u) * 0.11,
-      sunSpin: 0.04 + smoothstep(0.5, 0.6, u) * 0.35,
-      drift: 0.15 + smoothstep(0.66, 0.78, u) * 0.85,
+      spin: 0.05 + smoothstep(0.3, 0.42, u) * 0.8 * (1 - smoothstep(0.64, 0.8, u) * 0.75),
+      year: 0.02 + smoothstep(0.48, 0.64, u) * 0.32,
+      galaxy: 0.014 + smoothstep(0.68, 0.82, u) * 0.18,
+      moon: 0.14 + smoothstep(0.4, 0.52, u) * 0.5,
+      inner: 0.06 + smoothstep(0.5, 0.62, u) * 0.85,
+      outer: 0.025 + smoothstep(0.56, 0.68, u) * 0.18,
+      bob: 0.025 + smoothstep(0.66, 0.78, u) * 0.38,
+      shear: smoothstep(0.74, 0.86, u) * 0.11,
+      sunSpin: 0.06 + smoothstep(0.48, 0.6, u) * 0.28,
+      drift: 0.22 + smoothstep(0.6, 0.78, u) * 0.65,
     };
   }
 
@@ -943,7 +961,8 @@ export function createWorld(canvas) {
     sun.getWorldPosition(tmp.sun);
     anchor.getWorldPosition(tmp.look);
     tmp.normal.copy(tmp.look).sub(tmp.earth).normalize();
-    figure.root.getWorldQuaternion(tmp.q);
+    anchor.getWorldQuaternion(tmp.q);
+    tmp.q.multiply(CAM_YAW);
     tmp.right.set(1, 0, 0).applyQuaternion(tmp.q);
     tmp.fwd.set(0, 0, 1).applyQuaternion(tmp.q);
     const chest = 1.15 * scale;
@@ -1007,11 +1026,8 @@ export function createWorld(canvas) {
   }
 
   function render(u, playTime, width, height) {
-    const wt = Math.max(0, playTime - 2.8);
-    const ease = 1 - Math.exp(-wt * 0.8);
-    const lat = HOME.lat + Math.sin(wt * 0.33) * 0.012 * ease;
-    const lon = HOME.lon + Math.sin(wt * 0.23 + 0.7) * 0.02 * ease;
-    placeAnchor(lat, lon);
+    const walk = sampleWalk(playTime);
+    placeWalker(walk.x, walk.z);
 
     sunPath.rotation.y = state.galaxy;
     innerSpin.rotation.y = state.galaxy * 1.7;
@@ -1045,18 +1061,10 @@ export function createWorld(canvas) {
     outerPivot.rotation.y = state.outer;
     outer.rotation.y = state.outer * 0.6;
 
-    const pose = poseFigure(figure, playTime);
-    const distGuess = logKey(u, DIST);
-    const tScale = THREE.MathUtils.clamp(
-      Math.log(distGuess / 6.4) / Math.log(240 / 6.4),
-      0,
-      1,
-    );
-    const wanted = THREE.MathUtils.lerp(0.29, 0.05, tScale);
-    const scale = THREE.MathUtils.clamp((wanted * Math.min(distGuess, 240)) / 1.82, 1, 8);
-    figure.root.scale.setScalar(scale);
+    const pose = poseFigure(figure, playTime, walk);
+    figure.root.scale.setScalar(1);
 
-    const focus = frame(u, scale);
+    frame(u, 1);
 
     const skyColor = skyAt(u);
     scene.background.setRGB(
@@ -1084,65 +1092,81 @@ export function createWorld(canvas) {
 
     const sunDir = tmp.dir.copy(tmp.sun).sub(tmp.earth).normalize();
     atmoMat.uniforms.uSunDir.value.copy(sunDir);
-    atmoMat.uniforms.uOpacity.value = smoothstep(0.22, 0.4, u) * (1 - smoothstep(0.7, 0.82, u));
     if (earthShader.uniforms) {
       tmp.b.copy(sunDir).transformDirection(camera.matrixWorldInverse);
       earthShader.uniforms.uSunDir.value.copy(tmp.b);
       earthShader.uniforms.uLamp.value = 2.4 * smoothstep(0.4, 0.5, u);
     }
 
-    figure.mat.opacity = 1 - smoothstep(0.26, 0.38, u);
+    anchor.getWorldPosition(tmp.look);
+    earth.getWorldPosition(tmp.earth);
+    sun.getWorldPosition(tmp.sun);
+    const alt = camera.position.distanceTo(tmp.earth) - EARTH_R;
+    const camSun = camera.position.distanceTo(tmp.sun);
+    const camGal = camera.position.length();
+    camera.fov = width < height ? 48 : 34;
+    const fovRad = (camera.fov * Math.PI) / 180;
+    const px = (worldSize, distance) =>
+      (worldSize / Math.max(distance, 0.001)) * (height * 0.5) / Math.tan(fovRad / 2);
+    const personDist = camera.position.distanceTo(tmp.look);
+    const personPx = px(1.7, personDist);
+    const earthPx = px(EARTH_R * 2, camera.position.distanceTo(tmp.earth));
+
+    figure.mat.opacity = smoothstep(1.6, 7, personPx);
     figure.mat.transparent = figure.mat.opacity < 0.99;
-    contact.material.opacity = 0.22 * (1 - smoothstep(0.12, 0.24, u));
-    longShadow.material.opacity = 0.85 * (1 - smoothstep(0.1, 0.22, u));
-    disc.material.opacity = 1 - smoothstep(0.12, 0.26, u);
-    const placeFade = 1 - smoothstep(0.2, 0.32, u);
-    wall.transparent = placeFade < 0.99;
-    roofMat.transparent = wall.transparent;
-    doorMat.transparent = wall.transparent;
-    wall.opacity = placeFade;
-    roofMat.opacity = placeFade;
-    doorMat.opacity = placeFade;
-    laneMat.transparent = wall.transparent;
-    laneMat.opacity = placeFade;
-    hamlet.visible = placeFade > 0.02;
-    stones.visible = u < 0.22;
+    figure.mat.depthWrite = figure.mat.opacity > 0.45;
+    contact.material.opacity = 0.28 * figure.mat.opacity;
+    disc.material.opacity = 1 - smoothstep(20, 38, alt);
+    disc.material.depthWrite = disc.material.opacity > 0.85;
+    disc.visible = disc.material.opacity > 0.03;
+    wall.transparent = false;
+    roofMat.transparent = false;
+    doorMat.transparent = false;
+    laneMat.transparent = false;
+    wall.opacity = 1;
+    roofMat.opacity = 1;
+    doorMat.opacity = 1;
+    laneMat.opacity = 1;
+    hamlet.visible = true;
+    stones.visible = true;
 
-    const showSpark = smoothstep(0.28, 0.38, u) * (1 - smoothstep(0.62, 0.72, u));
-    spark.material.opacity = showSpark;
-    spark.scale.setScalar(THREE.MathUtils.clamp(focus * 0.004, 0.6, 12));
+    const sparkOn = (1 - smoothstep(2.2, 8, personPx)) * smoothstep(22, 60, earthPx);
+    spark.material.opacity = sparkOn;
+    const sparkPx = Math.min(Math.max(personPx, 2.2), earthPx * 0.1);
+    const sparkWorld = (sparkPx * personDist * Math.tan(fovRad / 2)) / (height * 0.5);
+    spark.scale.setScalar(THREE.MathUtils.clamp(sparkWorld, 0.15, 80));
 
-    clouds.material.opacity = 0.28 * smoothstep(0.38, 0.48, u) * (1 - smoothstep(0.62, 0.72, u));
-    moon.material.opacity = smoothstep(0.34, 0.44, u);
-    moon.material.transparent = true;
-    inner.material.opacity = smoothstep(0.52, 0.6, u);
-    inner.material.transparent = true;
-    outer.material.opacity = smoothstep(0.58, 0.66, u);
-    outer.material.transparent = true;
-    const sunFade = smoothstep(0.5, 0.58, u) * (1 - smoothstep(0.93, 0.99, u));
-    sunMat.uniforms.uFade.value = sunFade;
-    sunMat.depthWrite = sunFade > 0.85;
-    sun.visible = sunFade > 0.02;
-    sunGlow.material.opacity = 0.7 * sunFade;
-    earthOrbit.material.opacity =
-      0.85 * smoothstep(0.54, 0.6, u) * (1 - smoothstep(0.74, 0.84, u));
-    outerOrbit.material.opacity =
-      0.55 * smoothstep(0.6, 0.68, u) * (1 - smoothstep(0.78, 0.88, u));
-    sunOrbit.material.opacity =
-      0.4 * smoothstep(0.72, 0.8, u) * (1 - smoothstep(0.9, 0.96, u));
+    const earthAng = EARTH_R / Math.max(1, camera.position.distanceTo(tmp.earth));
+    clouds.material.opacity = 0.32 * smoothstep(100, 460, alt);
+    atmoMat.uniforms.uOpacity.value =
+      0.95 * smoothstep(50, 260, alt) * smoothstep(0.004, 0.02, earthAng);
+    moon.material.opacity = 1;
+    moon.material.transparent = false;
+    inner.material.opacity = 1;
+    inner.material.transparent = false;
+    outer.material.opacity = 1;
+    outer.material.transparent = false;
+    sunMat.uniforms.uFade.value = 1;
+    sunMat.depthWrite = true;
+    sun.visible = true;
+    sunGlow.material.opacity = 0.7;
+    earthOrbit.material.opacity = 0.5 * smoothstep(EARTH_ORBIT * 1.15, EARTH_ORBIT * 2.3, camSun);
+    outerOrbit.material.opacity = 0.4 * smoothstep(OUTER_ORBIT * 0.9, OUTER_ORBIT * 1.55, camSun);
+    sunOrbit.material.opacity = 0.28 * smoothstep(sunArmR * 1.15, sunArmR * 2.4, camGal);
 
-    starMat.opacity = smoothstep(0.32, 0.44, u) * (1 - smoothstep(0.88, 0.97, u));
-    stars.visible = starMat.opacity > 0.01;
-    neighborMat.opacity = smoothstep(0.62, 0.72, u) * (1 - smoothstep(0.84, 0.92, u));
-    neighborMat.size = Math.max(40, focus * 0.008);
-    neighbors.visible = neighborMat.opacity > 0.01;
-    galaxyMat.opacity = smoothstep(0.74, 0.84, u) * (1 - smoothstep(0.9, 0.97, u));
-    galaxyMat.size = Math.max(70, focus * 0.011);
+    const night = smoothstep(0.3, 0.46, u);
+    starMat.opacity = 0.9 * night;
+    stars.visible = night > 0.02;
+    neighborMat.opacity = 0.85 * night;
+    neighborMat.size = 26;
+    neighbors.visible = night > 0.02;
+    galaxyMat.opacity = night * smoothstep(5000, 16000, camGal);
+    galaxyMat.size = 16;
     galaxy.visible = galaxyMat.opacity > 0.01;
     innerSpin.visible = galaxy.visible;
-    distantMat.opacity = smoothstep(0.84, 0.92, u) * (1 - smoothstep(0.95, 0.995, u));
-    distant.visible = distantMat.opacity > 0.01;
-    distantMat.size = 2.4 + smoothstep(0.8, 0.94, u) * 3.2;
+    distantMat.opacity = 0.55 * night;
+    distant.visible = night > 0.02;
+    distantMat.size = 1.4 + smoothstep(24000, 80000, camGal) * 2.2;
 
     const veil = smoothstep(0.97, 1, u);
 
