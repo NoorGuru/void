@@ -3,6 +3,17 @@ import assert from 'node:assert/strict';
 import { monotoneInterpolator } from '../src/motion.js';
 import { sampleWalk, FIGURE } from '../src/figure.js';
 import { keplerRatio, galaxyOmegaRatio } from '../src/orbits.js';
+import { formatWidth } from '../src/i18n.js';
+
+test('scale readout says real widths in spoken units', () => {
+  assert.equal(formatWidth(4.9, 'en'), '4.9 meters across');
+  assert.equal(formatWidth(7.5e6, 'en'), '7,500 kilometers across');
+  assert.equal(formatWidth(1.1e12, 'en'), '1.1 billion kilometers across');
+  assert.equal(formatWidth(3.1e19, 'en'), '3,300 light-years across');
+  assert.equal(formatWidth(8.8e26, 'en'), '93 billion light-years across');
+  assert.equal(formatWidth(8.8e26, 'ar'), 'عرض المشهد 93 مليار سنة ضوئية');
+  assert.equal(formatWidth(5 * 9.4607e15, 'ar'), 'عرض المشهد 5 سنوات ضوئية');
+});
 
 test('zoom mapping keeps moving between phase cues', () => {
   const cues = [
