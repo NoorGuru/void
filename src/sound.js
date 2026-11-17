@@ -3,8 +3,10 @@ function smoothstep(a, b, x) {
   return t * t * (3 - 2 * t);
 }
 
-const BELLS = [0.14, 0.24, 0.36, 0.46, 0.54, 0.64, 0.72, 0.8, 0.88];
-const NOTES = [246.9, 220, 196, 174.6, 146.8, 130.8, 110, 98, 82.4];
+// One bell per phase boundary (the same starts as PHASES in main.js),
+// stepping down as the view widens.
+const BELLS = [0.14, 0.24, 0.36, 0.41, 0.46, 0.52, 0.6, 0.66, 0.72, 0.78, 0.86, 0.94];
+const NOTES = [293.7, 261.6, 246.9, 220, 196, 174.6, 164.8, 146.8, 130.8, 110, 98, 82.4];
 
 export function createScore() {
   let ctx;
@@ -130,6 +132,59 @@ export function createScore() {
     source.stop(t + 0.8);
   }
 
+  // A slow open chord: each voice swells in over a few seconds and dies
+  // away long after, through the hall.
+  function chord(freqs, level, attack, release) {
+    if (!ctx || !wanted) return;
+    const t = ctx.currentTime;
+    freqs.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = i % 2 ? 'triangle' : 'sine';
+      osc.frequency.value = freq;
+      osc.detune.value = (i - 1.5) * 3;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(level, t + attack + i * 0.35);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + attack + release + i * 0.35);
+      osc.connect(gain);
+      gain.connect(master);
+      osc.start(t);
+      osc.stop(t + attack + release + i * 0.35 + 0.1);
+    });
+  }
+
+  function swell() {
+    chord([110, 164.8, 220, 277.2, 329.6], 0.045, 3.2, 9);
+  }
+
+  function home() {
+    chord([196, 246.9, 293.7, 392], 0.03, 1.4, 6);
+  }
+
+  function fly() {
+    if (!ctx || !wanted) return;
+    const t = ctx.currentTime;
+    const buffer = ctx.createBuffer(1, ctx.sampleRate * 10, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.value = 1.2;
+    filter.frequency.setValueAtTime(90, t);
+    filter.frequency.exponentialRampToValueAtTime(1400, t + 8.5);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.035, t + 3);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 10);
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(master);
+    source.start(t);
+    source.stop(t + 10);
+  }
+
   function start() {
     wanted = true;
     if (!ctx) {
@@ -182,11 +237,11 @@ export function createScore() {
     if (wanted && ctx && ctx.state === 'suspended') ctx.resume();
   }
 
-  function update(u, dt, stepped, rush) {
+  function update(u, dt, stepped, rush, flying = false) {
     if (!ctx || !wanted) return;
     clock += dt;
     const now = ctx.currentTime;
-    const presence = 1 - smoothstep(0.97, 1, u);
+    const presence = 1 - smoothstep(0.97, 1, u) * 0.65;
     master.gain.setTargetAtTime(presence, now, 0.4);
 
     const root = 52 * 0.55 ** u;
@@ -214,7 +269,7 @@ export function createScore() {
     if (next > stage && rush < 2.2) bell(NOTES[next]);
     stage = next;
 
-    if (rush > 3.2 && clock - lastWhoosh > 1.1) {
+    if (!flying && rush > 3.2 && clock - lastWhoosh > 1.1) {
       lastWhoosh = clock;
       whoosh();
     }
@@ -225,6 +280,9 @@ export function createScore() {
     stop,
     unlock,
     update,
+    swell,
+    home,
+    fly,
     get on() {
       return wanted;
     },

@@ -106,78 +106,78 @@ Order is by impact. Each item names the files it touches.
 
 ### A. Accuracy and scale relay (`src/world.js`)
 
-- [ ] A1. Earth system scale relay: `earthPivot.scale` holds 1 to u 0.50,
+- [x] A1. Earth system scale relay: `earthPivot.scale` holds 1 to u 0.50,
       then eases (log) to about 0.05 by u 0.66. Scale every Earth-radius use
       (pushOut, alt, atmosphere radius, horizon test) by it. The Sun is
       then clearly larger than the Earth by the year phase.
-- [ ] A2. Solar system relay: wrap Sun, glow and `solarGroup` in a `system`
+- [x] A2. Solar system relay: wrap Sun, glow and `solarGroup` in a `system`
       group; scale 1 to u 0.72, down to about 0.025 by u 0.86. Sun glow keeps
       a minimum pixel size so the Sun reads as one star among the
       neighbours.
-- [ ] A3. Field stars follow the camera (a sky at infinity) and fade out as
+- [x] A3. Field stars follow the camera (a sky at infinity) and fade out as
       we leave the galaxy (u 0.84 to 0.92).
-- [ ] A4. Atmosphere: ray closest-approach shader, brightest just above the
+- [x] A4. Atmosphere: ray closest-approach shader, brightest just above the
       limb, zero at the outer edge, cool blue on the day side, warm at the
       twilight edge.
-- [ ] A5. Procedural Earth surface shader: fbm continents with a coast
+- [x] A5. Procedural Earth surface shader: fbm continents with a coast
       forced near home (land at home, sea beyond the walk), ocean depth and
       shelf, land tones, ice caps, terminator warmth limited to a thin
       scattering band, ocean glint, procedural city lights on the night
       side with a bright cluster at home. Octaves fade with screen
       derivative so the far globe does not shimmer.
-- [ ] A6. Procedural clouds (fbm, drifting, lit by the Sun, kept off home).
-- [ ] A7. Hide the real Sun mesh and Moon in the opening sky; draw the low
+- [x] A6. Procedural clouds (fbm, drifting, lit by the Sun, kept off home).
+- [x] A7. Hide the real Sun mesh and Moon in the opening sky; draw the low
       sun in a sky dome instead.
-- [ ] A8. Shrink the galaxy's empty bubble around the Sun.
-- [ ] A9. Andromeda as a second, larger, inclined spiral; a cosmic web of
+- [x] A8. Shrink the galaxy's empty bubble around the Sun.
+- [x] A9. Andromeda as a second, larger, inclined spiral; a cosmic web of
       several thousand galaxies along filaments for the end.
-- [ ] A10. Disclaimer: "Sizes and times are compressed so the motion stays
+- [x] A10. Disclaimer: "Sizes and times are compressed so the motion stays
       visible." (en and ar).
 
 ### B. Story and feeling
 
-- [ ] B1. Dusk opening (`src/world.js`): one physical sun direction drives
+- [x] B1. Dusk opening (`src/world.js`): one physical sun direction drives
       the light. Earth's starting spin is solved at load so home sits at
       about 15 degrees sun elevation on the evening side; the local frame is
       turned so the low sun is ahead-left of the walk. The solar clock
       barely moves during the walk and only speeds up as we rise, so the
       sun sets on home during the coast phase and the lights come on.
-- [ ] B2. Sky dome for the opening: dusty blue zenith, warm horizon, glow
+- [x] B2. Sky dome for the opening: dusty blue zenith, warm horizon, glow
       and small disc at the real sun direction; fog takes the horizon
       colour; fades to space as altitude grows.
-- [ ] B3. Soft shadows for the figure and houses from the key light
+- [x] B3. Soft shadows for the figure and houses from the key light
       (shadow map updates only while it matters).
-- [ ] B4. Window lights in the hamlet that switch on one by one as the sun
+- [x] B4. Window lights in the hamlet that switch on one by one as the sun
       drops. The hamlet hands over to the bright home cluster in the
       Earth's night lights.
-- [ ] B5. The ember (`index.html`, `src/main.js`, `src/style.css`,
+- [x] B5. The ember (`index.html`, `src/main.js`, `src/style.css`,
       `src/world.js`): a DOM light that sits above the veil at the
       projected position of the person, appears as the figure shrinks,
       hides behind the Earth's horizon or the Sun, slides to the Earth's
       centre once the globe is small, and breathes slowly. A quiet "you"
       label from the dot phase onward.
-- [ ] B6. New lines `lights`, `dot`, `coda`; retime `CUES` so each beat has
+- [x] B6. New lines `lights`, `dot`, `coda`; retime `CUES` so each beat has
       eight to twelve seconds; update reduced-motion step marks and sound
       bell marks to the new boundaries.
-- [ ] B7. Ending: the web fades, the veil comes down, the ember stays. The
+- [x] B7. Ending: the web fades, the veil comes down, the ember stays. The
       coda line, then **Go home**: an eased flight back through the whole
       zoom to t = 0, where the first line, "You have not moved yet.", is
       now true in a new way.
 
 ### C. Interface (`src/main.js`, `src/style.css`, `index.html`)
 
-- [ ] C1. Line transitions: outgoing line lifts and blurs out; incoming
+- [x] C1. Line transitions: outgoing line lifts and blurs out; incoming
       words rise and clear in sequence, stat follows. Fast scrubbing swaps
       without animation. Reduced motion: plain swap.
-- [ ] C2. Live scale readout at the top inline-start: the real width of the
+- [x] C2. Live scale readout at the top inline-start: the real width of the
       view, "4 meters across" to "93 billion light-years across", two
       significant figures, tabular numerals, Arabic-Indic digits in Arabic.
-- [ ] C3. Coda state UI: note, Go home button; after landing, Play.
+- [x] C3. Coda state UI: note, Go home button; after landing, Play.
 
 ### D. Sound (`src/sound.js`)
 
-- [ ] D1. Bells at the new phase boundaries.
-- [ ] D2. A warm swell at `dot` and at `coda`; a soft resolve on landing
+- [x] D1. Bells at the new phase boundaries.
+- [x] D2. A warm swell at `dot` and at `coda`; a soft resolve on landing
       home.
 
 ## Verification
@@ -197,4 +197,30 @@ Also check `&lang=ar`, a 390x844 viewport, and reduced motion.
 
 ## Status
 
-- 2026-11-18: Review done, plan written. Nothing implemented yet.
+- 2026-11-18: Review done, plan written.
+- 2026-11-18: First full implementation pass landed (all items in A to D).
+  New file `src/shaders.js` holds the Earth, cloud, atmosphere and sky
+  shaders. Notes for whoever continues:
+  - `world.js` `calibrate()` solves the opening at load (Earth spin so the
+    Sun is 12.6° up and setting over home; home frame turned so the Sun is
+    behind-right of the camera). `SUN_ELEVATION`, `SUN_AZIMUTH` tune it.
+  - Sunset over home lands at ~35 s (u ≈ 0.305), mid coast phase, set by
+    `solarRate()`. The ink switch in `main.js` `applySky` (u < 0.305) must
+    follow it. Re-check with a quick simulation if `CUES` or the rate change.
+  - Clocks integrate along real time (`integrate(t0, t1, timeToU)`), so
+    `?t=` captures and scrubs land on the same sky as playing through.
+  - Camera up: home normal, then the ecliptic normal (u 0.36 to 0.58), then
+    70% toward the galaxy normal (u 0.74 to 0.88). The person-to-planet
+    handover swings around the Earth's centre (`slerpUnit`) so it never
+    passes through the globe.
+  - The ember is a DOM element (`#ember`) positioned from
+    `world.render().ember`; it sits above `#veil`.
+
+### Still to check or polish
+
+- [ ] Fly-home flight end to end in a real browser (click Go home at the end).
+- [ ] Arabic at 1280 and 390 widths (word reveal with Amiri, readout digits).
+- [ ] Phone layout 390x844: readout vs dock, copy width, ember label.
+- [ ] Reduced motion: steps land on each phase, no animation.
+- [ ] Moon phase: the Moon is sometimes behind the Earth during its line.
+- [ ] Performance on a real GPU (Earth shader fbm, 40k web points, shadows).
