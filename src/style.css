@@ -117,8 +117,30 @@ h1 {
   line-height: 1.45;
 }
 
+.credit {
+  margin: 10px 0 0;
+  font-size: 15px;
+  font-style: italic;
+  line-height: 1.45;
+  opacity: 0.68;
+}
+
+.credit a {
+  pointer-events: auto;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+}
+
+.credit a:hover {
+  color: var(--ember);
+  text-decoration-color: currentColor;
+}
+
 #stat {
-  margin-top: 12px;
+  margin-top: 8px;
   transition: opacity 0.45s var(--ease);
 }
 
