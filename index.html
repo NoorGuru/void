@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" dir="ltr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -11,32 +11,61 @@
     />
     <link rel="canonical" href="https://void.bynoor.io/" />
     <link rel="stylesheet" href="/src/style.css" />
+    <script>
+      (function () {
+        var lang = "en";
+        try {
+          var q = new URLSearchParams(location.search).get("lang");
+          if (q === "ar" || q === "en") lang = q;
+          else {
+            var stored = localStorage.getItem("void-lang");
+            if (stored === "ar" || stored === "en") lang = stored;
+            else {
+              var list = navigator.languages || [navigator.language || ""];
+              for (var i = 0; i < list.length; i++) {
+                if (String(list[i]).toLowerCase().indexOf("ar") === 0) {
+                  lang = "ar";
+                  break;
+                }
+              }
+            }
+          }
+        } catch (e) {}
+        document.documentElement.lang = lang;
+        document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+      })();
+    </script>
   </head>
   <body>
     <canvas id="view" aria-hidden="true"></canvas>
     <div id="veil" aria-hidden="true"></div>
     <main>
-      <p class="sr">
-        A film of scale. It waits until you begin. Scroll or drag to move through it.
-        Space pauses. The sizes are shortened so the motion stays visible.
+      <p class="sr" id="about">
+        <span class="t-en">A film of scale. It waits until you begin. Scroll or drag to move through it. Space pauses. The sizes are shortened so the motion stays visible.</span>
+        <span class="t-ar">فيلم عن المقياس. ينتظر حتى تبدأ. مرّر أو اسحب لتتحرك فيه. مفتاح المسافة يوقف. الأحجام مختصرة كي تبقى الحركة مرئية.</span>
       </p>
       <div class="copy">
-        <h1 id="line">You have not moved yet.</h1>
-        <p id="stat">1.8 meters tall. Everything else is measured from here.</p>
-        <p class="credit"><a href="https://bynoor.io" target="_blank" rel="noopener" aria-label="By Noor — bynoor.io (opens in a new tab)"><span class="credit-by">by</span><span class="credit-name">noor</span><span class="credit-tld">.io</span><span class="credit-arrow" aria-hidden="true">↗</span></a></p>
-        <p id="hint" hidden>Wait, or scroll.</p>
-        <p id="note" hidden>Sizes are shortened so the motion stays visible.</p>
-        <button id="begin" type="button">Begin</button>
-        <button id="again" type="button" hidden>Play again</button>
+        <h1 id="line"><span class="t-en">You have not moved yet.</span><span class="t-ar">لم تتحرّك بعد.</span></h1>
+        <p id="stat"><span class="t-en">1.8 meters tall. Everything else is measured from here.</span><span class="t-ar">طولك ١٫٨ متر. كل ما عدا ذلك يُقاس من هنا.</span></p>
+        <p class="credit"><a href="https://bynoor.io" target="_blank" rel="noopener" aria-label="By Noor — bynoor.io (opens in a new tab)"><bdi class="credit-latin" dir="ltr"><span class="credit-by">by</span><span class="credit-name">noor</span><span class="credit-tld">.io</span></bdi><span class="credit-arrow" aria-hidden="true">↗</span></a></p>
+        <p id="hint" hidden><span class="t-en">Wait, or scroll.</span><span class="t-ar">انتظر، أو مرّر.</span></p>
+        <p id="note" hidden><span class="t-en">Sizes are shortened so the motion stays visible.</span><span class="t-ar">الأحجام مختصرة كي تبقى الحركة مرئية.</span></p>
+        <button id="begin" type="button"><span class="t-en">Begin</span><span class="t-ar">ابدأ</span></button>
+        <button id="again" type="button" hidden><span class="t-en">Play again</span><span class="t-ar">مرة أخرى</span></button>
       </div>
       <div class="dock">
+        <div class="lang" id="lang" dir="ltr" role="group" aria-label="Language">
+          <button type="button" id="lang-en" lang="en" aria-pressed="true">English</button>
+          <button type="button" id="lang-ar" lang="ar" aria-pressed="false">العربية</button>
+        </div>
         <div class="dock-actions">
-          <button id="near" type="button" hidden>Closer</button>
-          <button id="play" type="button" hidden>Pause</button>
-          <button id="sound" type="button" aria-pressed="true">Sound on</button>
+          <button id="near" type="button" hidden><span class="t-en">Closer</span><span class="t-ar">أقرب</span></button>
+          <button id="play" type="button" hidden><span class="t-en">Pause</span><span class="t-ar">إيقاف</span></button>
+          <button id="sound" type="button" aria-pressed="true"><span class="t-en">Sound on</span><span class="t-ar">الصوت يعمل</span></button>
         </div>
         <input
           id="scrub"
+          dir="ltr"
           type="range"
           min="0"
           max="1000"
@@ -45,10 +74,10 @@
           aria-valuetext="Still."
         />
       </div>
-      <p id="fail" class="fail" hidden>This piece needs WebGL.</p>
+      <p id="fail" class="fail" hidden><span class="t-en">This piece needs WebGL.</span><span class="t-ar">يحتاج هذا العمل إلى WebGL.</span></p>
     </main>
     <noscript>
-      <p class="fail">This piece plays with JavaScript and WebGL.</p>
+      <p class="fail">This piece plays with JavaScript and WebGL.<br /><bdi lang="ar" dir="rtl">يعمل هذا العمل بجافاسكربت وWebGL.</bdi></p>
     </noscript>
     <script type="module" src="/src/main.js"></script>
   </body>
