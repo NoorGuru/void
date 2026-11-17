@@ -61,9 +61,24 @@
           <button type="button" id="lang-ar" lang="ar" aria-pressed="false">العربية</button>
         </div>
         <div class="dock-actions">
-          <button id="near" type="button" hidden><span class="t-en">Closer</span><span class="t-ar">أقرب</span></button>
-          <button id="play" type="button" hidden><span class="t-en">Pause</span><span class="t-ar">إيقاف</span></button>
-          <button id="sound" type="button" aria-pressed="true"><span class="t-en">Sound on</span><span class="t-ar">الصوت مفعّل</span></button>
+          <button id="near" class="icon" type="button" hidden data-state="back" aria-label="Closer" title="Closer">
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 20 20">
+              <g class="ico-back"><path d="M15.5 10h-11" /><path d="M8.4 5.9 4.3 10 8.4 14.1" /></g>
+            </svg>
+          </button>
+          <button id="play" class="icon" type="button" hidden data-state="play" aria-label="Play" title="Play">
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 20 20">
+              <g class="ico-play"><path d="M7.6 4.9 16 10 7.6 15.1Z" /></g>
+              <g class="ico-pause"><path d="M8 5v10" /><path d="M12.6 5v10" /></g>
+              <g class="ico-step"><path d="M4.5 10h11" /><path d="M11.6 5.9 15.7 10 11.6 14.1" /></g>
+            </svg>
+          </button>
+          <button id="sound" class="icon" type="button" aria-pressed="true" data-state="on" aria-label="Sound on" title="Sound on">
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 20 20">
+              <g class="ico-on"><path d="M4.6 8.2h2.7L11 5.1v9.8L7.3 11.8H4.6Z" /><path d="M13.4 7.7a3.3 3.3 0 0 1 0 4.6" /><path d="M15.6 5.5a6.4 6.4 0 0 1 0 9" /></g>
+              <g class="ico-off"><path d="M4.6 8.2h2.7L11 5.1v9.8L7.3 11.8H4.6Z" /><path d="M13.7 8.1 17.7 12" /><path d="M17.7 8.1 13.7 12" /></g>
+            </svg>
+          </button>
         </div>
         <input
           id="scrub"
