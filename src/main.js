@@ -1,5 +1,6 @@
 import { createWorld } from './world.js';
 import { createScore } from './sound.js';
+import { copy, resolveLang } from './i18n.js';
 import { monotoneInterpolator } from './motion.js';
 
 const END = 150;
@@ -32,10 +33,6 @@ const CUES = [
 // person has not moved yet, and settles at the very end.)
 const cueCurve = monotoneInterpolator(CUES);
 
-function timeToU(time) {
-  return cueCurve(Math.min(END, Math.max(0, time)));
-}
-
 const canvas = document.getElementById('view');
 const lineEl = document.getElementById('line');
 const hintEl = document.getElementById('hint');
@@ -48,11 +45,19 @@ const nearEl = document.getElementById('near');
 const soundEl = document.getElementById('sound');
 const scrubEl = document.getElementById('scrub');
 const failEl = document.getElementById('fail');
+const aboutEl = document.getElementById('about');
+const langGroup = document.getElementById('lang');
+const langEn = document.getElementById('lang-en');
+const langAr = document.getElementById('lang-ar');
+const creditLink = document.querySelector('.credit a');
+const descriptionEl = document.querySelector('meta[name="description"]');
 const root = document.documentElement;
+
+let lang = resolveLang();
+const t = () => copy[lang];
 
 const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const coarse = window.matchMedia('(pointer: coarse)').matches;
-if (coarse) hintEl.textContent = 'Wait, or drag.';
 
 const params = new URLSearchParams(location.search);
 let playTime = params.has('t') ? Number(params.get('t')) : 0;
@@ -60,12 +65,9 @@ let begun = params.has('t');
 let playing = begun && params.get('play') === '1' && !reduce;
 let hintGone = false;
 
-if (reduce) {
-  playing = false;
-  playEl.textContent = 'Farther';
-  hintEl.textContent = 'Step through, or drag.';
-}
+if (reduce) playing = false;
 
+let failKind = null;
 let world;
 try {
   world = createWorld(canvas);
@@ -74,81 +76,28 @@ try {
   failEl.hidden = false;
   lineEl.hidden = true;
   hintEl.hidden = true;
-  failEl.textContent = error instanceof Error ? error.message : 'This piece needs WebGL.';
+  failKind = error instanceof Error ? 'message' : 'webgl';
+  failEl.textContent = error instanceof Error ? error.message : t().failWebgl;
   console.error(error);
 }
 
-function currentLine(u, time) {
-  if (u >= 0.94) {
-    return {
-      line: 'There is no middle left to stand in.',
-      stat: 'About 93 billion light-years across. Most of that distance is nothing.',
-    };
-  }
-  if (u >= 0.86) {
-    return {
-      line: 'Past this, the motions stop sharing a center.',
-      stat: 'Andromeda is 2.5 million light-years away. The gap between galaxies is almost empty.',
-    };
-  }
-  if (u >= 0.78) {
-    return {
-      line: 'The whole disk turns. The inside pulls ahead.',
-      stat: 'One turn takes about 230 million years. The near side is coming toward you.',
-    };
-  }
-  if (u >= 0.7) {
-    return {
-      line: 'The center you found is leaving too.',
-      stat: 'The Sun moves at about 220 km/s, and it rises and falls through the disk as it goes.',
-    };
-  }
-  if (u >= 0.6) {
-    return {
-      line: 'The fall is not a single circle.',
-      stat: 'The outer worlds sit billions of kilometers farther out, and they move more slowly.',
-    };
-  }
-  if (u >= 0.52) {
-    return {
-      line: 'You are not the center. You are riding one.',
-      stat: '150 million kilometers out. The world comes toward you, then falls away. One trip is a year.',
-    };
-  }
-  if (u >= 0.46) {
-    return {
-      line: 'Something else is falling, and it never lands.',
-      stat: 'The Moon is 384,000 kilometers away. It goes around once a month.',
-    };
-  }
-  if (u >= 0.36) {
-    return {
-      line: 'The world turns all the way around.',
-      stat: 'About 1,670 kilometers an hour at the equator. One full turn is a day.',
-    };
-  }
-  if (u >= 0.24) {
-    return {
-      line: 'The edge you could not see was a coastline.',
-      stat: 'A country spans hundreds of kilometers. Earth is 12,742 kilometers across.',
-    };
-  }
-  if (u >= 0.14) {
-    return {
-      line: 'A place is what you can still walk back to.',
-      stat: 'A few hundred meters. You could cross it before dark.',
-    };
-  }
-  if (time >= 2.8 || u >= 0.06) {
-    return {
-      line: 'The first motion is yours, and it is small.',
-      stat: 'About 0.7 meters a step. A life is a few hundred million of them.',
-    };
-  }
-  return {
-    line: 'You have not moved yet.',
-    stat: '1.8 meters tall. Everything else is measured from here.',
-  };
+function timeToU(time) {
+  return cueCurve(Math.min(END, Math.max(0, time)));
+}
+
+function lineKey(u, time) {
+  if (u >= 0.94) return 'end';
+  if (u >= 0.86) return 'galaxies';
+  if (u >= 0.78) return 'disk';
+  if (u >= 0.7) return 'sun';
+  if (u >= 0.6) return 'planets';
+  if (u >= 0.52) return 'year';
+  if (u >= 0.46) return 'moon';
+  if (u >= 0.36) return 'spin';
+  if (u >= 0.24) return 'coast';
+  if (u >= 0.14) return 'place';
+  if (time >= 2.8 || u >= 0.06) return 'step';
+  return 'still';
 }
 
 function applySky(sky, u) {
@@ -162,33 +111,87 @@ function applySky(sky, u) {
   if (meta) meta.setAttribute('content', skyCss);
 }
 
-let shownLine = 'You have not moved yet.';
+let shownKey = 'still';
+let lineToken = 0;
 
-function applyLine(u, time) {
-  const next = currentLine(u, time);
-  if (next.line === shownLine) return;
-  shownLine = next.line;
+function paintLine(key, animate) {
+  const token = ++lineToken;
+  const text = t().lines[key];
   const swap = () => {
-    lineEl.textContent = next.line;
-    statEl.textContent = next.stat;
-    scrubEl.setAttribute('aria-valuetext', `${next.line} ${next.stat}`);
+    if (token !== lineToken) return;
+    lineEl.textContent = text.line;
+    statEl.textContent = text.stat;
+    scrubEl.setAttribute('aria-valuetext', `${text.line} ${text.stat}`);
+    lineEl.style.opacity = '1';
+    statEl.style.opacity = '1';
   };
-  if (reduce) {
+  if (!animate || reduce) {
     swap();
     return;
   }
   lineEl.style.opacity = '0';
   statEl.style.opacity = '0';
-  window.setTimeout(() => {
-    swap();
-    lineEl.style.opacity = '1';
-    statEl.style.opacity = '1';
-  }, 220);
+  window.setTimeout(swap, 220);
+}
+
+function applyLine(u, time) {
+  const key = lineKey(u, time);
+  if (key === shownKey) return;
+  shownKey = key;
+  paintLine(key, true);
+}
+
+function hintText() {
+  if (reduce) return t().hintStep;
+  if (coarse) return t().hintDrag;
+  return t().hintScroll;
+}
+
+function playText() {
+  if (reduce) return t().farther;
+  return playing ? t().pause : t().play;
+}
+
+function applyLocale() {
+  const c = t();
+  root.lang = lang;
+  root.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  document.title = c.title;
+  if (descriptionEl) descriptionEl.setAttribute('content', c.description);
+  aboutEl.textContent = c.sr;
+  beginEl.textContent = c.begin;
+  againEl.textContent = c.again;
+  nearEl.textContent = c.closer;
+  noteEl.textContent = c.note;
+  hintEl.textContent = hintText();
+  playEl.textContent = playText();
+  showSound(sound.on);
+  scrubEl.setAttribute('aria-label', c.scrub);
+  creditLink.setAttribute('aria-label', c.creditAria);
+  langGroup.setAttribute('aria-label', c.langLabel);
+  langEn.setAttribute('aria-pressed', lang === 'en' ? 'true' : 'false');
+  langAr.setAttribute('aria-pressed', lang === 'ar' ? 'true' : 'false');
+  if (failKind === 'webgl') failEl.textContent = c.failWebgl;
+  paintLine(shownKey, false);
+}
+
+function chooseLang(next) {
+  if (next === lang) return;
+  lang = next;
+  try {
+    localStorage.setItem('void-lang', lang);
+  } catch {
+    // Storage can be blocked. The choice still applies for this visit.
+  }
+  const url = new URL(location.href);
+  url.searchParams.set('lang', lang);
+  history.replaceState(null, '', url);
+  applyLocale();
 }
 
 function setPlaying(next) {
   playing = next;
-  if (!reduce) playEl.textContent = playing ? 'Pause' : 'Play';
+  if (!reduce) playEl.textContent = playing ? t().pause : t().play;
 }
 
 function togglePlay() {
@@ -261,13 +264,16 @@ playEl.addEventListener('click', togglePlay);
 againEl.addEventListener('click', restart);
 nearEl.addEventListener('click', () => step(-1));
 function showSound(on) {
-  soundEl.textContent = on ? 'Sound on' : 'Sound off';
+  soundEl.textContent = on ? t().soundOn : t().soundOff;
   soundEl.setAttribute('aria-pressed', on ? 'true' : 'false');
 }
 
 soundEl.addEventListener('click', () => {
   showSound(sound.on ? sound.stop() : sound.start());
 });
+langEn.addEventListener('click', () => chooseLang('en'));
+langAr.addEventListener('click', () => chooseLang('ar'));
+applyLocale();
 
 window.addEventListener('pointerdown', () => sound.unlock());
 window.addEventListener('keydown', () => sound.unlock());
