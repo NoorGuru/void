@@ -1,6 +1,6 @@
 import { createWorld } from './world.js';
 import { createScore } from './sound.js';
-import { copy, resolveLang, formatWidth } from './i18n.js';
+import { copy, resolveLang, formatWidth, LANG_MARKS, otherLang } from './i18n.js';
 import { monotoneInterpolator, keyInterpolator } from './motion.js';
 
 const END = 144;
@@ -87,6 +87,7 @@ const statEl = document.getElementById('stat');
 const playEl = document.getElementById('play');
 const nearEl = document.getElementById('near');
 const soundEl = document.getElementById('sound');
+const langToggleEl = document.getElementById('lang-toggle');
 const scrubEl = document.getElementById('scrub');
 const failEl = document.getElementById('fail');
 const aboutEl = document.getElementById('about');
@@ -274,6 +275,16 @@ function syncNear() {
   nearEl.title = t().closer;
 }
 
+function syncLangToggle() {
+  const target = otherLang(lang);
+  langToggleEl.dataset.target = target;
+  const mark = langToggleEl.querySelector('.lang-mark');
+  if (mark) mark.textContent = LANG_MARKS[target];
+  const label = t().langSwitchTo;
+  langToggleEl.setAttribute('aria-label', label);
+  langToggleEl.title = label;
+}
+
 let shownWidth = '';
 function applyScale(u, span) {
   if (!span) return;
@@ -297,6 +308,7 @@ function applyLocale() {
   emberLabel.textContent = c.you;
   hintEl.textContent = hintText();
   syncPlay();
+  syncLangToggle();
   showSound(sound.on);
   scrubEl.setAttribute('aria-label', c.scrub);
   creditLink.setAttribute('aria-label', c.creditAria);
@@ -431,6 +443,7 @@ soundEl.addEventListener('click', () => {
 });
 langEn.addEventListener('click', () => chooseLang('en'));
 langAr.addEventListener('click', () => chooseLang('ar'));
+langToggleEl.addEventListener('click', () => chooseLang(otherLang(lang)));
 applyLocale();
 
 window.addEventListener('pointerdown', () => sound.unlock());
@@ -553,6 +566,7 @@ function frame(now) {
   scrubEl.style.setProperty('--p', `${(playTime / END) * 100}%`);
 
   root.classList.toggle('is-running', stage === 'run');
+  langToggleEl.hidden = stage !== 'run';
 
   const atEnd = u > 0.985 && !flight;
   if (atEnd && !lastCoda) sound.swell();

@@ -294,6 +294,20 @@ html[lang="ar"] #lang-ar {
   opacity: 1;
 }
 
+.lang-toggle .lang-mark {
+  font-family: "Literata", Palatino, Georgia, serif;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.lang-toggle[data-target="ar"] .lang-mark {
+  font-family: "Amiri", "Literata", Palatino, Georgia, serif;
+  font-size: 16px;
+  letter-spacing: 0;
+  padding-block-end: 2px;
+}
+
 @media (pointer: coarse) {
   .icon {
     width: 44px;
