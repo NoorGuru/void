@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { monotoneInterpolator } from '../src/motion.js';
 import { sampleWalk, FIGURE } from '../src/figure.js';
 import { keplerRatio, galaxyOmegaRatio } from '../src/orbits.js';
-import { formatWidth } from '../src/i18n.js';
+import { formatWidth, otherLang, LANG_MARKS } from '../src/i18n.js';
 
 test('scale readout says real widths in spoken units', () => {
   assert.equal(formatWidth(4.9, 'en'), '4.9 meters across');
@@ -13,6 +13,15 @@ test('scale readout says real widths in spoken units', () => {
   assert.equal(formatWidth(8.8e26, 'en'), '93 billion light-years across');
   assert.equal(formatWidth(8.8e26, 'ar'), 'عرض المشهد 93 مليار سنة ضوئية');
   assert.equal(formatWidth(5 * 9.4607e15, 'ar'), 'عرض المشهد 5 سنوات ضوئية');
+});
+
+test('otherLang toggles and LANG_MARKS maps each language to its mark', () => {
+  assert.equal(otherLang('en'), 'ar');
+  assert.equal(otherLang('ar'), 'en');
+  assert.equal(otherLang(otherLang('en')), 'en');
+  assert.equal(otherLang(otherLang('ar')), 'ar');
+  assert.equal(LANG_MARKS.en, 'EN');
+  assert.equal(LANG_MARKS.ar, 'ع');
 });
 
 test('zoom mapping keeps moving between phase cues', () => {

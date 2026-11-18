@@ -1,3 +1,6 @@
+export const LANG_MARKS = { en: 'EN', ar: 'ع' };
+export function otherLang(lang) { return lang === 'ar' ? 'en' : 'ar'; }
+
 export function resolveLang() {
   const q = new URLSearchParams(location.search).get('lang');
   if (q === 'ar' || q === 'en') return q;
@@ -171,6 +174,7 @@ export const copy = {
     failJs: 'This piece plays with JavaScript and WebGL.',
     creditAria: 'By Noor — bynoor.io (opens in a new tab)',
     langLabel: 'Language',
+    langSwitchTo: 'Switch to Arabic',
     lines: pack('en'),
   },
   ar: {
@@ -195,6 +199,7 @@ export const copy = {
     failJs: 'يتطلّب هذا العمل JavaScript وWebGL.',
     creditAria: 'نور — bynoor.io (يُفتَح في تبويب جديد)',
     langLabel: 'اللغة',
+    langSwitchTo: 'بدّل إلى الإنجليزية',
     lines: pack('ar'),
   },
 };
