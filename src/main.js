@@ -113,6 +113,7 @@ const params = new URLSearchParams(location.search);
 let playTime = params.has('t') ? Number(params.get('t')) : 0;
 let begun = params.has('t');
 let playing = begun && params.get('play') === '1' && !reduce;
+let stage = begun && playTime > 0.5 ? 'run' : 'start';
 let hintGone = false;
 let flight = null;
 let rush = 0;
@@ -259,9 +260,18 @@ function hintText() {
   return t().hintScroll;
 }
 
-function playText() {
-  if (reduce) return t().farther;
-  return playing ? t().pause : t().play;
+function syncPlay() {
+  const state = reduce ? 'step' : (playing ? 'pause' : 'play');
+  const label = reduce ? t().farther : (playing ? t().pause : t().play);
+  playEl.dataset.state = state;
+  playEl.setAttribute('aria-label', label);
+  playEl.title = label;
+}
+
+function syncNear() {
+  nearEl.dataset.state = 'back';
+  nearEl.setAttribute('aria-label', t().closer);
+  nearEl.title = t().closer;
 }
 
 let shownWidth = '';
@@ -282,11 +292,11 @@ function applyLocale() {
   aboutEl.textContent = c.sr;
   beginEl.textContent = c.begin;
   againEl.textContent = c.again;
-  nearEl.textContent = c.closer;
+  syncNear();
   noteEl.textContent = c.note;
   emberLabel.textContent = c.you;
   hintEl.textContent = hintText();
-  playEl.textContent = playText();
+  syncPlay();
   showSound(sound.on);
   scrubEl.setAttribute('aria-label', c.scrub);
   creditLink.setAttribute('aria-label', c.creditAria);
@@ -312,9 +322,14 @@ function chooseLang(next) {
   applyLocale();
 }
 
+function enterRun() {
+  stage = 'run';
+}
+
 function setPlaying(next) {
+  if (next) enterRun();
   playing = next;
-  if (!reduce) playEl.textContent = playing ? t().pause : t().play;
+  syncPlay();
 }
 
 function togglePlay() {
@@ -330,6 +345,7 @@ function togglePlay() {
 }
 
 function begin() {
+  enterRun();
   begun = true;
   beginEl.hidden = true;
   playEl.hidden = false;
@@ -340,6 +356,7 @@ function begin() {
 }
 
 function land() {
+  stage = 'home';
   flight = null;
   playTime = 0;
   frame.prevTime = 0;
@@ -375,6 +392,7 @@ function cancelFlight() {
 }
 
 function step(dir) {
+  enterRun();
   const u = timeToU(playTime);
   const marks = [...PHASES.map(([, at]) => at).slice(1), 1];
   let target = dir > 0 ? 1 : 0;
@@ -400,7 +418,11 @@ playEl.addEventListener('click', togglePlay);
 againEl.addEventListener('click', goHome);
 nearEl.addEventListener('click', () => step(-1));
 function showSound(on) {
-  soundEl.textContent = on ? t().soundOn : t().soundOff;
+  const state = on ? 'on' : 'off';
+  const label = on ? t().soundOn : t().soundOff;
+  soundEl.dataset.state = state;
+  soundEl.setAttribute('aria-label', label);
+  soundEl.title = label;
   soundEl.setAttribute('aria-pressed', on ? 'true' : 'false');
 }
 
@@ -416,6 +438,7 @@ window.addEventListener('keydown', () => sound.unlock());
 
 scrubEl.addEventListener('input', () => {
   if (!begun) return;
+  enterRun();
   cancelFlight();
   playTime = (Number(scrubEl.value) / 1000) * END;
   setPlaying(false);
@@ -429,10 +452,12 @@ window.addEventListener('keydown', (event) => {
     if (!begun) begin();
     else togglePlay();
   } else if (begun && event.code === 'ArrowRight') {
+    enterRun();
     cancelFlight();
     playTime = Math.min(END, playTime + 2);
     setPlaying(false);
   } else if (begun && event.code === 'ArrowLeft') {
+    enterRun();
     cancelFlight();
     playTime = Math.max(0, playTime - 2);
     setPlaying(false);
@@ -444,6 +469,7 @@ window.addEventListener(
   (event) => {
     if (!begun || event.target === scrubEl) return;
     event.preventDefault();
+    enterRun();
     cancelFlight();
     let dy = event.deltaY;
     if (event.deltaMode === 1) dy *= 16;
@@ -465,6 +491,7 @@ window.addEventListener('pointermove', (event) => {
   if (!drag || event.pointerId !== drag.id) return;
   const dy = event.clientY - drag.y;
   if (Math.abs(dy) < 3) return;
+  enterRun();
   playTime = Math.min(END, Math.max(0, drag.t - (dy / window.innerHeight) * END * 0.85));
   setPlaying(false);
   hintGone = true;
@@ -523,6 +550,9 @@ function frame(now) {
   if (!flight) applyLine(u, playTime);
   applyScale(u, lastSpan);
   scrubEl.value = String((playTime / END) * 1000);
+  scrubEl.style.setProperty('--p', `${(playTime / END) * 100}%`);
+
+  root.classList.toggle('is-running', stage === 'run');
 
   const atEnd = u > 0.985 && !flight;
   if (atEnd && !lastCoda) sound.swell();

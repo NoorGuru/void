@@ -208,6 +208,16 @@ html[dir="rtl"] .dock {
   direction: ltr;
   align-items: center;
   margin-bottom: 4px;
+  transition:
+    opacity 0.55s var(--ease),
+    visibility 0.55s var(--ease);
+}
+
+html.is-running .lang,
+html.is-running .credit {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .lang button {
@@ -240,7 +250,63 @@ html[lang="ar"] #lang-ar {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 2px;
+  gap: 6px;
+}
+
+.icon {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--chrome) 24%, transparent);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.icon[hidden] {
+  display: none;
+}
+
+.icon svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon svg g {
+  opacity: 0;
+  transition: opacity 0.18s var(--ease);
+}
+
+#play[data-state="play"] .ico-play,
+#play[data-state="pause"] .ico-pause,
+#play[data-state="step"] .ico-step,
+#near[data-state="back"] .ico-back,
+#sound[data-state="on"] .ico-on,
+#sound[data-state="off"] .ico-off {
+  opacity: 1;
+}
+
+@media (pointer: coarse) {
+  .icon {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+html[dir="rtl"] #near svg {
+  transform: scaleX(-1);
+}
+
+html[dir="rtl"] #play[data-state="step"] svg {
+  transform: scaleX(-1);
 }
 
 h1 {
@@ -386,7 +452,9 @@ html[dir="rtl"] .credit a:focus-visible .credit-arrow {
 }
 
 .credit {
-  transition: opacity 0.6s var(--ease);
+  transition:
+    opacity 0.55s var(--ease),
+    visibility 0.55s var(--ease);
 }
 
 #hint {
@@ -439,6 +507,7 @@ button:active {
 }
 
 #scrub {
+  --p: 0%;
   pointer-events: auto;
   touch-action: none;
   direction: ltr;
@@ -457,7 +526,11 @@ button:active {
 
 #scrub::-webkit-slider-runnable-track {
   height: 2px;
-  background: color-mix(in srgb, var(--chrome) 40%, transparent);
+  background: linear-gradient(
+    to right,
+    var(--chrome) 0 var(--p),
+    color-mix(in srgb, var(--chrome) 40%, transparent) var(--p) 100%
+  );
   border: 0;
 }
 
@@ -473,7 +546,11 @@ button:active {
 
 #scrub::-moz-range-track {
   height: 2px;
-  background: color-mix(in srgb, var(--chrome) 40%, transparent);
+  background: linear-gradient(
+    to right,
+    var(--chrome) 0 var(--p),
+    color-mix(in srgb, var(--chrome) 40%, transparent) var(--p) 100%
+  );
   border: 0;
 }
 
@@ -563,9 +640,9 @@ html[lang="ar"] .lang button[lang="en"] {
     opacity: 1;
   }
 
-  .dock-actions button:hover {
-    text-decoration: underline;
-    text-underline-offset: 0.22em;
+  .icon:hover {
+    border-color: color-mix(in srgb, var(--chrome) 48%, transparent);
+    background: color-mix(in srgb, var(--chrome) 7%, transparent);
   }
 
   #begin:hover,
@@ -592,11 +669,6 @@ html[lang="ar"] .lang button[lang="en"] {
     width: auto;
   }
 
-  .dock-actions button {
-    font-size: 16px;
-    padding: 10px 6px;
-  }
-
   .scale {
     top: calc(128px + env(safe-area-inset-top));
     font-size: 15px;
@@ -617,7 +689,9 @@ html[lang="ar"] .lang button[lang="en"] {
   .credit a,
   .credit-arrow,
   .ember-label,
-  .lang button {
+  .lang,
+  .lang button,
+  .icon svg g {
     transition: none;
   }
 
