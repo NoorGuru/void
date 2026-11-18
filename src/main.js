@@ -338,10 +338,52 @@ function enterRun() {
   stage = 'run';
 }
 
+// Keep the screen lit while the piece is moving on its own. Phones and
+// laptops otherwise dim mid-journey. The lock drops when the tab hides;
+// visibilitychange asks for it again when we come back still playing.
+let wakeLock = null;
+
+function wantWake() {
+  return Boolean(playing || flight);
+}
+
+async function syncWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  if (wantWake()) {
+    if (wakeLock) return;
+    try {
+      const lock = await navigator.wakeLock.request('screen');
+      if (!wantWake()) {
+        await lock.release();
+        return;
+      }
+      wakeLock = lock;
+      lock.addEventListener('release', () => {
+        if (wakeLock === lock) wakeLock = null;
+      });
+    } catch {
+      // Battery saver, permissions, or a blocked request. Playback still runs.
+    }
+  } else if (wakeLock) {
+    const lock = wakeLock;
+    wakeLock = null;
+    try {
+      await lock.release();
+    } catch {
+      // Already released by the browser.
+    }
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') syncWakeLock();
+});
+
 function setPlaying(next) {
   if (next) enterRun();
   playing = next;
   syncPlay();
+  syncWakeLock();
 }
 
 function togglePlay() {
@@ -394,6 +436,7 @@ function goHome() {
   copyEl.classList.add('is-away');
   againEl.hidden = true;
   noteEl.hidden = true;
+  syncWakeLock();
   sound.fly();
 }
 
@@ -401,6 +444,7 @@ function cancelFlight() {
   if (!flight) return;
   flight = null;
   copyEl.classList.remove('is-away');
+  syncWakeLock();
 }
 
 function step(dir) {
@@ -583,4 +627,5 @@ function frame(now) {
 }
 
 frame.prevTime = playTime;
+syncWakeLock();
 requestAnimationFrame(frame);
